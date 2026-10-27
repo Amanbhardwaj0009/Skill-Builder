@@ -1,11 +1,11 @@
 import React, { useRef, useState, Suspense, useEffect } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls } from '@react-three/drei';
+import { OrbitControls, Html } from '@react-three/drei';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import { ProfileLighting } from './ProfileLighting';
 import { CareerEnvironment3D } from './CareerEnvironment3D';
 import { AnimatedCharacter, CharacterAnimationName } from './AnimatedCharacter';
-import { CharacterControlsHUD } from './CharacterControlsHUD';
+import { CharacterControlsHUD, CameraPresetView } from './CharacterControlsHUD';
 import { AlertTriangle, RefreshCw, Sparkles } from 'lucide-react';
 
 interface CharacterSceneProps {
@@ -14,7 +14,21 @@ interface CharacterSceneProps {
   onFallbackTo2D?: () => void;
 }
 
-// Internal Camera Rig to handle external HUD buttons (rotate, zoom, reset)
+// 3D Scene In-Canvas Loader
+const SceneLoadingIndicator: React.FC = () => {
+  return (
+    <Html center>
+      <div className="flex flex-col items-center gap-2 rounded-2xl border border-purple-500/30 bg-[#0C1222]/95 px-5 py-3 shadow-2xl backdrop-blur-md">
+        <div className="h-7 w-7 animate-spin rounded-full border-3 border-cyan-400 border-t-transparent shadow-glow-cyan" />
+        <span className="text-[10px] font-bold tracking-wider text-purple-200 uppercase">
+          Loading 3D Character Lobby...
+        </span>
+      </div>
+    </Html>
+  );
+};
+
+// Internal Camera Rig to handle external HUD buttons
 const CameraController: React.FC<{
   controlsRef: React.RefObject<OrbitControlsImpl>;
 }> = ({ controlsRef }) => {
@@ -22,7 +36,7 @@ const CameraController: React.FC<{
     <OrbitControls
       ref={controlsRef}
       target={[0, 1.0, 0]}
-      minDistance={1.6}
+      minDistance={1.4}
       maxDistance={4.8}
       minPolarAngle={Math.PI / 6}
       maxPolarAngle={Math.PI / 2 - 0.05} // Never clip beneath floor
@@ -64,9 +78,9 @@ export const CharacterScene: React.FC<CharacterSceneProps> = ({
   const dialogues: Record<string, string[]> = {
     'Manufacturing Engineer': [
       "All automated assembly cells are operating at peak 99.4% efficiency!",
-      "I'm currently optimizing the conveyor cycle time and robotic arm calibration.",
-      "Safety first! Protective helmet, hi-vis vest, and steel-toe boots locked in.",
-      "Ready to deploy the new PLC logic update to the factory floor.",
+      "I'm currently optimizing cycle time and robotic arm calibration.",
+      "Safety gear locked in! Hard hat, high-vis bands, and steel-toe work boots ready.",
+      "Deploying the latest industrial PLC logic to the factory floor.",
     ],
     'Software Developer': [
       "Production build compiled with zero regressions! Ready for deployment.",
@@ -120,10 +134,9 @@ export const CharacterScene: React.FC<CharacterSceneProps> = ({
   const handleZoomIn = () => {
     if (controlsRef.current) {
       const dist = controlsRef.current.getDistance();
-      controlsRef.current.minDistance = Math.max(1.6, dist - 0.4);
+      controlsRef.current.minDistance = Math.max(1.4, dist - 0.4);
       controlsRef.current.update();
-      // restore default constraint
-      controlsRef.current.minDistance = 1.6;
+      controlsRef.current.minDistance = 1.4;
     }
   };
 
@@ -132,7 +145,6 @@ export const CharacterScene: React.FC<CharacterSceneProps> = ({
       const dist = controlsRef.current.getDistance();
       controlsRef.current.maxDistance = Math.min(4.8, dist + 0.4);
       controlsRef.current.update();
-      // restore default constraint
       controlsRef.current.maxDistance = 4.8;
     }
   };
@@ -141,8 +153,44 @@ export const CharacterScene: React.FC<CharacterSceneProps> = ({
     if (controlsRef.current) {
       controlsRef.current.reset();
       controlsRef.current.target.set(0, 1.0, 0);
+      controlsRef.current.setAzimuthalAngle(0.4);
+      controlsRef.current.setPolarAngle(Math.PI / 2.3);
       controlsRef.current.update();
     }
+  };
+
+  // Camera Presets (Front, 3/4 Lobby, Side, Close-up Face)
+  const handleSetCameraPreset = (preset: CameraPresetView) => {
+    if (!controlsRef.current) return;
+
+    switch (preset) {
+      case 'threeQuarter':
+        controlsRef.current.target.set(0, 1.0, 0);
+        controlsRef.current.setAzimuthalAngle(0.55);
+        controlsRef.current.setPolarAngle(Math.PI / 2.3);
+        break;
+      case 'front':
+        controlsRef.current.target.set(0, 1.0, 0);
+        controlsRef.current.setAzimuthalAngle(0);
+        controlsRef.current.setPolarAngle(Math.PI / 2.2);
+        break;
+      case 'side':
+        controlsRef.current.target.set(0, 1.0, 0);
+        controlsRef.current.setAzimuthalAngle(Math.PI / 2);
+        controlsRef.current.setPolarAngle(Math.PI / 2.2);
+        break;
+      case 'back':
+        controlsRef.current.target.set(0, 1.0, 0);
+        controlsRef.current.setAzimuthalAngle(Math.PI);
+        controlsRef.current.setPolarAngle(Math.PI / 2.2);
+        break;
+      case 'closeup':
+        controlsRef.current.target.set(0, 1.45, 0);
+        controlsRef.current.setAzimuthalAngle(0.1);
+        controlsRef.current.setPolarAngle(Math.PI / 2.2);
+        break;
+    }
+    controlsRef.current.update();
   };
 
   if (webglError) {
@@ -180,14 +228,14 @@ export const CharacterScene: React.FC<CharacterSceneProps> = ({
       <Canvas
         key={retryKey}
         shadows
-        camera={{ position: [0, 1.4, 3.2], fov: 42 }}
+        camera={{ position: [0.8, 1.25, 3.1], fov: 40 }}
         className="h-full w-full cursor-grab active:cursor-grabbing"
         gl={{ antialias: true, alpha: false, powerPreference: 'high-performance' }}
       >
         <color attach="background" args={['#070A14']} />
-        <fog attach="fog" args={['#070A14', 5, 16]} />
+        <fog attach="fog" args={['#070A14', 5, 18]} />
 
-        <Suspense fallback={null}>
+        <Suspense fallback={<SceneLoadingIndicator />}>
           <ProfileLighting careerName={careerName} />
           <CareerEnvironment3D careerName={careerName} />
           <AnimatedCharacter
@@ -209,6 +257,7 @@ export const CharacterScene: React.FC<CharacterSceneProps> = ({
         onZoomIn={handleZoomIn}
         onZoomOut={handleZoomOut}
         onResetCamera={handleResetCamera}
+        onSetCameraPreset={handleSetCameraPreset}
         interactiveDialogue={interactiveDialogue}
         studentName={studentName}
         careerName={careerName}

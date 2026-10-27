@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useMemo, useState } from 'react';
 import * as THREE from 'three';
 import { useGLTF, useAnimations } from '@react-three/drei';
 
@@ -19,52 +19,51 @@ export const AnimatedCharacter: React.FC<AnimatedCharacterProps> = ({
 }) => {
   const groupRef = useRef<THREE.Group>(null);
   const headBoneRef = useRef<THREE.Object3D | null>(null);
-  const handBoneRef = useRef<THREE.Object3D | null>(null);
+  const helmetGroupRef = useRef<THREE.Group>(null);
 
-  // Load rigged humanoid GLB
-  const { scene, animations } = useGLTF('/models/profile-character.glb');
-  const { actions, mixer } = useAnimations(animations, groupRef);
+  // Select suitable authentic human model based on career specialization
+  const isTechCasual =
+    careerName === 'Software Developer' ||
+    careerName === 'UI/UX Designer' ||
+    careerName === 'Data Analyst';
 
-  // Career Theme Color Mapping
-  const careerPalettes: Record<
-    string,
-    { primary: string; secondary: string; accent: string; helmet: string }
-  > = {
-    'Manufacturing Engineer': {
-      primary: '#EAB308', // Industrial Hi-Vis Safety Yellow
-      secondary: '#1E293B', // Slate utility trousers
-      accent: '#E2E8F0', // Reflective silver bands
-      helmet: '#F59E0B', // Safety Orange/Amber Helmet
-    },
-    'Software Developer': {
-      primary: '#0284C7', // Cyber Deep Cyan
-      secondary: '#0F172A', // Dark Charcoal
-      accent: '#38BDF8', // Neon Sky Blue
-      helmet: '#0EA5E9',
-    },
-    'UI/UX Designer': {
-      primary: '#8B5CF6', // Electric Purple
-      secondary: '#18181B', // Graphite
-      accent: '#C084FC', // Violet
-      helmet: '#A855F7',
-    },
-    'Data Analyst': {
-      primary: '#10B981', // Emerald
-      secondary: '#111827', // Obsidian
-      accent: '#34D399', // Mint
-      helmet: '#059669',
-    },
-    'Cybersecurity Analyst': {
-      primary: '#F43F5E', // Crimson Defense
-      secondary: '#090D16', // Stealth Navy
-      accent: '#FDA4AF', // Rose
-      helmet: '#E11D48',
-    },
-  };
+  const modelPath = isTechCasual
+    ? '/models/developer-character.glb'
+    : '/models/engineer-character.glb';
 
-  const currentPalette = careerPalettes[careerName] || careerPalettes['Manufacturing Engineer'];
+  // Load realistic human rigged GLB
+  const { scene } = useGLTF(modelPath);
 
-  // Apply materials and locate key skeleton attachment bones
+  // Load animation clips from the profile animation bank
+  const { animations } = useGLTF('/models/profile-character.glb');
+
+  // Retarget animation tracks to match the human skeleton joint names (stripping mixamorig: prefix)
+  const retargetedClips = useMemo(() => {
+    if (!animations || animations.length === 0) return [];
+    return animations.map((clip) => {
+      const cloned = clip.clone();
+      cloned.tracks = cloned.tracks.map((track) => {
+        const clonedTrack = track.clone();
+        let targetName = clonedTrack.name
+          .replace(/^mixamorig:/, '')
+          .replace(/^mixamorig/, '');
+
+        // Map leaf end-effectors to human skeleton joints
+        targetName = targetName.replace('HeadTop_End', 'HeadEnd');
+        targetName = targetName.replace('LeftToe_End', 'LeftToeEnd');
+        targetName = targetName.replace('RightToe_End', 'RightToeEnd');
+
+        clonedTrack.name = targetName;
+        return clonedTrack;
+      });
+      return cloned;
+    });
+  }, [animations]);
+
+  // Hook animations to the human character model
+  const { actions, mixer } = useAnimations(retargetedClips, groupRef);
+
+  // Configure Realistic Human PBR Materials and attach accessories to skeleton bones
   useEffect(() => {
     if (!scene) return;
 
@@ -75,29 +74,29 @@ export const AnimatedCharacter: React.FC<AnimatedCharacterProps> = ({
         mesh.receiveShadow = true;
 
         if (mesh.material) {
-          const mat = (mesh.material as THREE.MeshStandardMaterial).clone();
-          mat.roughness = 0.45;
-          mat.metalness = 0.25;
+          const mat = mesh.material as THREE.MeshStandardMaterial;
 
-          // Differentiate body parts by mesh name or material slot
-          if (mesh.name.toLowerCase().includes('001') || mesh.name.toLowerCase().includes('body')) {
-            mat.color = new THREE.Color(currentPalette.secondary);
-          } else {
-            mat.color = new THREE.Color(currentPalette.primary);
-          }
-          mesh.material = mat;
+          // Preserve authentic skin, face, clothing base color & normal textures
+          // Ensure natural non-metallic human skin and fabric appearance (avoid golden mannequin!)
+          mat.metalness = 0.05;
+          mat.roughness = 0.65;
+          mat.needsUpdate = true;
         }
       }
 
-      // Attach bones
-      if (child.name === 'mixamorig:Head') {
+      // Locate Head bone for attaching accessories
+      if (child.name === 'Head' || child.name === 'mixamorig:Head') {
         headBoneRef.current = child;
       }
-      if (child.name === 'mixamorig:RightHand' || child.name === 'mixamorig:LeftHand') {
-        if (!handBoneRef.current) handBoneRef.current = child;
-      }
     });
-  }, [scene, careerName, currentPalette]);
+
+    // Parent the industrial safety helmet directly to Head bone so it rotates with head movement
+    if (headBoneRef.current && helmetGroupRef.current) {
+      if (helmetGroupRef.current.parent !== headBoneRef.current) {
+        headBoneRef.current.add(helmetGroupRef.current);
+      }
+    }
+  }, [scene, careerName, isTechCasual]);
 
   // Handle smooth animation crossfades
   const previousActionRef = useRef<string | null>(null);
@@ -105,7 +104,6 @@ export const AnimatedCharacter: React.FC<AnimatedCharacterProps> = ({
   useEffect(() => {
     if (!actions) return;
 
-    // Fallback mapping if exact action name differs
     const actionKey = actions[currentAnimation] ? currentAnimation : 'idle';
     const activeAction = actions[actionKey];
 
@@ -115,13 +113,13 @@ export const AnimatedCharacter: React.FC<AnimatedCharacterProps> = ({
     const prevAction = prevKey && actions[prevKey] ? actions[prevKey] : null;
 
     if (prevAction && prevAction !== activeAction) {
-      prevAction.fadeOut(0.3);
+      prevAction.fadeOut(0.35);
     }
 
     activeAction.reset();
-    activeAction.fadeIn(0.3);
+    activeAction.fadeIn(0.35);
 
-    // If it's a non-looping emote (like 'agree' or 'headShake'), play once then return to idle
+    // If it's a non-looping emote gesture ('agree' or 'headShake'), play once then return to idle
     if (currentAnimation === 'agree' || currentAnimation === 'headShake') {
       activeAction.setLoop(THREE.LoopOnce, 1);
       activeAction.clampWhenFinished = true;
@@ -144,6 +142,9 @@ export const AnimatedCharacter: React.FC<AnimatedCharacterProps> = ({
     previousActionRef.current = actionKey;
   }, [currentAnimation, actions, mixer, onAnimationEnd]);
 
+  // Show industrial safety helmet for Manufacturing Engineer & Cybersecurity specialist
+  const showSafetyHelmet = !isTechCasual;
+
   return (
     <group
       ref={groupRef}
@@ -154,64 +155,79 @@ export const AnimatedCharacter: React.FC<AnimatedCharacterProps> = ({
         if (onCharacterClick) onCharacterClick();
       }}
     >
-      {/* 3D Rigged Humanoid Model */}
-      <primitive object={scene} scale={[1, 1, 1]} />
+      {/* Authentic Rigged Humanoid Model with Realistic Skin, Eyes, Face & Clothing */}
+      <primitive object={scene} />
 
-      {/* Career Equipment 3D Accessories: Attached to character */}
-      {/* 1. Industrial Safety Hard Hat / Helmet */}
-      <group position={[0, 1.62, 0.02]} rotation={[0, 0, 0]}>
-        {/* Main Dome */}
-        <mesh castShadow receiveShadow position={[0, 0.08, -0.02]}>
-          <sphereGeometry args={[0.165, 24, 16, 0, Math.PI * 2, 0, Math.PI / 2]} />
-          <meshStandardMaterial
-            color={currentPalette.helmet}
-            roughness={0.2}
-            metalness={0.4}
-          />
-        </mesh>
-        {/* Helmet Brim */}
-        <mesh position={[0, 0.08, 0.03]} rotation={[-0.1, 0, 0]}>
-          <cylinderGeometry args={[0.185, 0.185, 0.02, 32]} />
-          <meshStandardMaterial
-            color={currentPalette.helmet}
-            roughness={0.2}
-            metalness={0.4}
-          />
-        </mesh>
-        {/* Reflective Front Safety Band */}
-        <mesh position={[0, 0.12, 0.13]} rotation={[-0.1, 0, 0]}>
-          <boxGeometry args={[0.18, 0.025, 0.02]} />
-          <meshStandardMaterial
-            color="#FFFFFF"
-            emissive="#FFFFFF"
-            emissiveIntensity={0.2}
-            metalness={0.9}
-            roughness={0.1}
-          />
-        </mesh>
-      </group>
+      {/* Industrial Safety Hard Hat - Attached to Head Bone */}
+      {showSafetyHelmet && (
+        <group
+          ref={helmetGroupRef}
+          position={[0, 0.12, 0.02]}
+          rotation={[0.08, 0, 0]}
+          scale={[1.05, 1.05, 1.05]}
+        >
+          {/* Main Hard Hat Dome (Industrial High-Vis Safety Amber) */}
+          <mesh castShadow receiveShadow position={[0, 0.03, -0.01]}>
+            <sphereGeometry args={[0.13, 24, 16, 0, Math.PI * 2, 0, Math.PI / 2]} />
+            <meshStandardMaterial
+              color="#F59E0B"
+              roughness={0.25}
+              metalness={0.2}
+            />
+          </mesh>
+          {/* Reinforced Ridge Peak */}
+          <mesh position={[0, 0.08, -0.01]} castShadow>
+            <boxGeometry args={[0.035, 0.04, 0.22]} />
+            <meshStandardMaterial color="#D97706" roughness={0.3} metalness={0.3} />
+          </mesh>
+          {/* Outer Protective Brim */}
+          <mesh position={[0, 0.02, 0.02]} rotation={[-0.05, 0, 0]}>
+            <cylinderGeometry args={[0.145, 0.15, 0.02, 32]} />
+            <meshStandardMaterial color="#F59E0B" roughness={0.3} metalness={0.2} />
+          </mesh>
+          {/* Front Reflective Silver Safety Badge */}
+          <mesh position={[0, 0.05, 0.12]} rotation={[-0.08, 0, 0]}>
+            <boxGeometry args={[0.08, 0.022, 0.01]} />
+            <meshStandardMaterial
+              color="#FFFFFF"
+              emissive="#FFFFFF"
+              emissiveIntensity={0.25}
+              roughness={0.2}
+              metalness={0.8}
+            />
+          </mesh>
+        </group>
+      )}
 
-      {/* 2. Industrial Diagnostic Tablet in hand */}
-      <group position={[0.32, 0.95, 0.22]} rotation={[0.4, 0.6, -0.2]}>
-        {/* Tablet Casing */}
-        <mesh castShadow receiveShadow>
-          <boxGeometry args={[0.22, 0.02, 0.32]} />
-          <meshStandardMaterial color="#0F172A" roughness={0.3} metalness={0.8} />
-        </mesh>
-        {/* Active Diagnostic Screen */}
-        <mesh position={[0, 0.012, 0]}>
-          <planeGeometry args={[0.19, 0.28]} />
-          <meshBasicMaterial color="#38BDF8" />
-        </mesh>
-        {/* Glowing Screen Indicator LED */}
-        <mesh position={[0.08, 0.015, -0.13]}>
-          <sphereGeometry args={[0.008, 8, 8]} />
-          <meshBasicMaterial color="#10B981" />
-        </mesh>
-      </group>
+      {/* High-Visibility Safety Harness Stripes on Torso (For Manufacturing Engineer) */}
+      {!isTechCasual && (
+        <group position={[0, 1.25, 0.01]}>
+          {/* High-Vis Vest Cross Harness Band */}
+          <mesh position={[-0.11, 0, 0.12]} rotation={[0, 0, -0.08]}>
+            <boxGeometry args={[0.04, 0.38, 0.01]} />
+            <meshStandardMaterial color="#EAB308" roughness={0.5} />
+          </mesh>
+          <mesh position={[0.11, 0, 0.12]} rotation={[0, 0, 0.08]}>
+            <boxGeometry args={[0.04, 0.38, 0.01]} />
+            <meshStandardMaterial color="#EAB308" roughness={0.5} />
+          </mesh>
+          {/* Horizontal Reflective Silver Safety Band */}
+          <mesh position={[0, -0.12, 0.12]}>
+            <boxGeometry args={[0.32, 0.03, 0.01]} />
+            <meshStandardMaterial
+              color="#E2E8F0"
+              emissive="#FFFFFF"
+              emissiveIntensity={0.3}
+              metalness={0.8}
+            />
+          </mesh>
+        </group>
+      )}
     </group>
   );
 };
 
-// Preload the model asset
+// Preload the authentic models
+useGLTF.preload('/models/engineer-character.glb');
+useGLTF.preload('/models/developer-character.glb');
 useGLTF.preload('/models/profile-character.glb');

@@ -8,146 +8,148 @@ interface CareerEnvironment3DProps {
 export const CareerEnvironment3D: React.FC<CareerEnvironment3DProps> = ({ careerName }) => {
   return (
     <group position={[0, 0, 0]}>
-      {/* 1. Reflective Industrial Factory Floor */}
+      {/* 1. Reflective Tournament Lobby Floor */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]} receiveShadow>
-        <planeGeometry args={[30, 30]} />
+        <planeGeometry args={[36, 36]} />
         <meshStandardMaterial
-          color="#0A0E1A"
+          color="#0F172A"
           roughness={0.25}
-          metalness={0.8}
+          metalness={0.7}
         />
       </mesh>
 
-      {/* Grid Floor Overlay for perspective depth */}
-      <gridHelper args={[24, 24, '#38BDF8', '#1E293B']} position={[0, 0.005, 0]} />
+      {/* Perspective Floor Grid */}
+      <gridHelper args={[28, 28, '#38BDF8', '#334155']} position={[0, 0.005, 0]} />
 
-      {/* Character Standing Pedestal Ring */}
-      <group position={[0, 0.01, 0]}>
-        {/* Outer subtle ring */}
-        <mesh rotation={[-Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[0.95, 1.05, 64]} />
-          <meshBasicMaterial color="#8B5CF6" transparent opacity={0.6} side={THREE.DoubleSide} />
+      {/* 2. Character Standing Pedestal / High-Tech Stage */}
+      <group position={[0, 0.015, 0]}>
+        {/* Main Solid Metallic Base Disc */}
+        <mesh position={[0, 0.01, 0]} receiveShadow>
+          <cylinderGeometry args={[1.15, 1.25, 0.03, 48]} />
+          <meshStandardMaterial color="#1E293B" roughness={0.3} metalness={0.8} />
         </mesh>
-        {/* Inner glow disk */}
-        <mesh rotation={[-Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[0.5, 0.55, 48]} />
-          <meshBasicMaterial color="#38BDF8" transparent opacity={0.7} side={THREE.DoubleSide} />
+
+        {/* Outer Glowing Energy Neon Ring */}
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.03, 0]}>
+          <ringGeometry args={[1.12, 1.18, 64]} />
+          <meshBasicMaterial color="#38BDF8" transparent opacity={0.85} side={THREE.DoubleSide} />
         </mesh>
-        {/* Subtle ground shadow disk directly under character */}
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.005, 0]}>
-          <circleGeometry args={[0.7, 32]} />
-          <meshBasicMaterial color="#000000" transparent opacity={0.4} />
+
+        {/* Inner Accent Ring */}
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.031, 0]}>
+          <ringGeometry args={[0.7, 0.74, 48]} />
+          <meshBasicMaterial color="#8B5CF6" transparent opacity={0.7} side={THREE.DoubleSide} />
+        </mesh>
+
+        {/* Contact Shadow Decal directly anchoring character feet */}
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.032, 0]}>
+          <circleGeometry args={[0.55, 32]} />
+          <meshBasicMaterial color="#000000" transparent opacity={0.65} />
         </mesh>
       </group>
 
-      {/* 2. Background Industrial Architecture */}
-      {/* Rear Main Wall */}
-      <mesh position={[0, 4, -6]} receiveShadow>
-        <planeGeometry args={[26, 10]} />
-        <meshStandardMaterial color="#0B1020" roughness={0.7} metalness={0.4} />
+      {/* 3. Layered Background Architecture (Hangar / Tech Facility) */}
+      {/* Main Back Wall with Panel Paneling */}
+      <mesh position={[0, 4.5, -6.5]} receiveShadow>
+        <planeGeometry args={[30, 11]} />
+        <meshStandardMaterial color="#111827" roughness={0.6} metalness={0.4} />
       </mesh>
 
+      {/* Center Illuminated Architectural Bay Frame */}
+      <group position={[0, 4.0, -6.4]}>
+        {/* Central Geometric Hologram Accent Backplate */}
+        <mesh position={[0, 0, 0]}>
+          <planeGeometry args={[7.0, 7.5]} />
+          <meshStandardMaterial
+            color="#1E293B"
+            roughness={0.4}
+            metalness={0.6}
+          />
+        </mesh>
+        {/* Cyan Neon Border Frame */}
+        <lineSegments position={[0, 0, 0.02]}>
+          <edgesGeometry args={[new THREE.PlaneGeometry(6.9, 7.4)]} />
+          <lineBasicMaterial color="#38BDF8" linewidth={2} />
+        </lineSegments>
+      </group>
+
       {/* Left Wall */}
-      <mesh position={[-8, 4, 0]} rotation={[0, Math.PI / 2, 0]} receiveShadow>
-        <planeGeometry args={[20, 10]} />
-        <meshStandardMaterial color="#080C18" roughness={0.7} metalness={0.5} />
+      <mesh position={[-9.5, 4.5, 0]} rotation={[0, Math.PI / 2, 0]} receiveShadow>
+        <planeGeometry args={[22, 11]} />
+        <meshStandardMaterial color="#0F172A" roughness={0.7} metalness={0.5} />
       </mesh>
 
       {/* Right Wall */}
-      <mesh position={[8, 4, 0]} rotation={[0, -Math.PI / 2, 0]} receiveShadow>
-        <planeGeometry args={[20, 10]} />
-        <meshStandardMaterial color="#080C18" roughness={0.7} metalness={0.5} />
+      <mesh position={[9.5, 4.5, 0]} rotation={[0, -Math.PI / 2, 0]} receiveShadow>
+        <planeGeometry args={[22, 11]} />
+        <meshStandardMaterial color="#0F172A" roughness={0.7} metalness={0.5} />
       </mesh>
 
-      {/* 3. Structural Gantry Pillars */}
-      {/* Left Pillar */}
-      <mesh position={[-4.5, 3.5, -4]} castShadow receiveShadow>
-        <boxGeometry args={[0.6, 8, 0.6]} />
-        <meshStandardMaterial color="#1E293B" metalness={0.8} roughness={0.3} />
-      </mesh>
-
-      {/* Right Pillar */}
-      <mesh position={[4.5, 3.5, -4]} castShadow receiveShadow>
-        <boxGeometry args={[0.6, 8, 0.6]} />
-        <meshStandardMaterial color="#1E293B" metalness={0.8} roughness={0.3} />
-      </mesh>
-
-      {/* Overhead Crossbeam Truss */}
-      <mesh position={[0, 6, -4]} castShadow>
-        <boxGeometry args={[10, 0.5, 0.5]} />
-        <meshStandardMaterial color="#1E293B" metalness={0.8} roughness={0.3} />
-      </mesh>
-
-      {/* Cyan Light Strip on Overhead Truss */}
-      <mesh position={[0, 5.7, -4]}>
-        <boxGeometry args={[8.8, 0.08, 0.08]} />
-        <meshBasicMaterial color="#38BDF8" />
-      </mesh>
-
-      {/* Purple Neon Vertical Light Strips on Pillars */}
-      <mesh position={[-4.18, 3.5, -3.98]}>
-        <boxGeometry args={[0.04, 6.5, 0.04]} />
-        <meshBasicMaterial color="#A855F7" />
-      </mesh>
-      <mesh position={[4.18, 3.5, -3.98]}>
-        <boxGeometry args={[0.04, 6.5, 0.04]} />
-        <meshBasicMaterial color="#A855F7" />
-      </mesh>
-
-      {/* 4. Industrial Automated Terminal Machinery (Left Background) */}
-      <group position={[-3.8, 0.75, -3]}>
-        {/* Machine Base */}
+      {/* 4. Structural Gantry Towers & Lighting Columns */}
+      {/* Left Heavy Structural Column */}
+      <group position={[-5.0, 4.0, -4.5]}>
         <mesh castShadow receiveShadow>
-          <boxGeometry args={[1.6, 1.5, 1.2]} />
-          <meshStandardMaterial color="#111827" metalness={0.9} roughness={0.3} />
+          <boxGeometry args={[0.7, 9, 0.7]} />
+          <meshStandardMaterial color="#1E293B" metalness={0.8} roughness={0.3} />
         </mesh>
-        {/* Terminal Screen Display */}
-        <mesh position={[0, 0.3, 0.61]} rotation={[-0.15, 0, 0]}>
-          <planeGeometry args={[1.1, 0.6]} />
+        {/* Vertical Neon Light Strip (Cyan) */}
+        <mesh position={[0.36, 0, 0.36]}>
+          <boxGeometry args={[0.06, 7.5, 0.06]} />
+          <meshBasicMaterial color="#38BDF8" />
+        </mesh>
+      </group>
+
+      {/* Right Heavy Structural Column */}
+      <group position={[5.0, 4.0, -4.5]}>
+        <mesh castShadow receiveShadow>
+          <boxGeometry args={[0.7, 9, 0.7]} />
+          <meshStandardMaterial color="#1E293B" metalness={0.8} roughness={0.3} />
+        </mesh>
+        {/* Vertical Neon Light Strip (Purple) */}
+        <mesh position={[-0.36, 0, 0.36]}>
+          <boxGeometry args={[0.06, 7.5, 0.06]} />
+          <meshBasicMaterial color="#A855F7" />
+        </mesh>
+      </group>
+
+      {/* Overhead Gantry Crossbeam Truss */}
+      <group position={[0, 7.2, -4.5]}>
+        <mesh castShadow>
+          <boxGeometry args={[11.5, 0.6, 0.6]} />
+          <meshStandardMaterial color="#1E293B" metalness={0.8} roughness={0.3} />
+        </mesh>
+        {/* Overhead Horizontal Cyan Strip */}
+        <mesh position={[0, -0.32, 0.28]}>
+          <boxGeometry args={[10.5, 0.08, 0.08]} />
+          <meshBasicMaterial color="#38BDF8" />
+        </mesh>
+      </group>
+
+      {/* 5. Background Tech Racks & Automated Machinery Consoles */}
+      {/* Left Tech Console Array */}
+      <group position={[-4.2, 0.9, -3.2]}>
+        <mesh castShadow receiveShadow>
+          <boxGeometry args={[1.5, 1.8, 0.9]} />
+          <meshStandardMaterial color="#1E293B" roughness={0.3} metalness={0.7} />
+        </mesh>
+        {/* Ambient Indicator Screen */}
+        <mesh position={[0, 0.45, 0.46]}>
+          <planeGeometry args={[1.2, 0.6]} />
           <meshBasicMaterial color="#0284C7" />
         </mesh>
-        {/* Status Warning LEDs */}
-        <mesh position={[-0.5, 0.82, 0.4]}>
-          <sphereGeometry args={[0.06, 16, 16]} />
-          <meshBasicMaterial color="#10B981" />
-        </mesh>
-        <mesh position={[-0.3, 0.82, 0.4]}>
-          <sphereGeometry args={[0.06, 16, 16]} />
-          <meshBasicMaterial color="#F59E0B" />
-        </mesh>
       </group>
 
-      {/* 5. Robotic Assembly / Power Distribution Cell (Right Background) */}
-      <group position={[3.8, 0.9, -3]}>
+      {/* Right Tech Console Array */}
+      <group position={[4.2, 0.9, -3.2]}>
         <mesh castShadow receiveShadow>
-          <cylinderGeometry args={[0.65, 0.75, 1.8, 24]} />
-          <meshStandardMaterial color="#0F172A" metalness={0.9} roughness={0.2} />
+          <boxGeometry args={[1.5, 1.8, 0.9]} />
+          <meshStandardMaterial color="#1E293B" roughness={0.3} metalness={0.7} />
         </mesh>
-        {/* Core Glowing Energy Core */}
-        <mesh position={[0, 0.1, 0]}>
-          <cylinderGeometry args={[0.45, 0.45, 0.6, 24]} />
-          <meshBasicMaterial color="#A855F7" transparent opacity={0.85} />
+        {/* Ambient Indicator Screen */}
+        <mesh position={[0, 0.45, 0.46]}>
+          <planeGeometry args={[1.2, 0.6]} />
+          <meshBasicMaterial color="#7C3AED" />
         </mesh>
-        {/* Protection cage ring */}
-        <mesh position={[0, 0.1, 0]}>
-          <torusGeometry args={[0.7, 0.04, 16, 32]} />
-          <meshStandardMaterial color="#334155" metalness={0.9} roughness={0.2} />
-        </mesh>
-      </group>
-
-      {/* 6. Distant Industrial Windows (Back Wall) */}
-      <group position={[0, 4.5, -5.9]}>
-        {[-3, 0, 3].map((xOffset, i) => (
-          <mesh key={i} position={[xOffset, 0, 0]}>
-            <planeGeometry args={[2.2, 2.6]} />
-            <meshStandardMaterial
-              color="#1E1B4B"
-              emissive="#312E81"
-              emissiveIntensity={0.4}
-              roughness={0.2}
-            />
-          </mesh>
-        ))}
       </group>
     </group>
   );

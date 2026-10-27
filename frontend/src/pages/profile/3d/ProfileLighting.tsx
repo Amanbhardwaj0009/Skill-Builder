@@ -7,49 +7,58 @@ interface ProfileLightingProps {
 export const ProfileLighting: React.FC<ProfileLightingProps> = ({ careerName }) => {
   return (
     <>
-      {/* Deep atmospheric ambient fill */}
-      <ambientLight intensity={0.65} color="#1E1B4B" />
+      {/* 1. Balanced Ambient Fill - Keeps Face, Eyes, Skin & Clothing Clearly Visible */}
+      <ambientLight intensity={0.8} color="#F1F5F9" />
 
-      {/* Main Key Light (Front-Right) with Soft Shadow */}
+      {/* 2. Main Key Light (Front-Right Sunlight) with Crisp Soft Shadows */}
       <directionalLight
-        position={[3, 5, 4]}
-        intensity={1.4}
-        color="#F8FAFC"
+        position={[3, 6, 4]}
+        intensity={1.8}
+        color="#FFFFFF"
         castShadow
-        shadow-mapSize-width={1024}
-        shadow-mapSize-height={1024}
+        shadow-mapSize-width={2048}
+        shadow-mapSize-height={2048}
         shadow-camera-near={0.5}
         shadow-camera-far={15}
         shadow-camera-left={-2.5}
         shadow-camera-right={2.5}
         shadow-camera-top={3.5}
-        shadow-camera-bottom={-1}
-        shadow-bias={-0.0005}
+        shadow-camera-bottom={-0.5}
+        shadow-bias={-0.0004}
       />
 
-      {/* Electric Cyan Rim Light (Back-Left) for Character Silhouetting */}
+      {/* 3. Warm Fill Light (Front-Left) for Natural Human Skin Undertones */}
+      <directionalLight
+        position={[-3, 4, 3]}
+        intensity={0.65}
+        color="#FEF08A"
+      />
+
+      {/* 4. Electric Cyan Rim Light (Back-Left) - Signature BGMI Silhouette Separation */}
       <spotLight
-        position={[-3.5, 4, -2.5]}
-        intensity={2.8}
+        position={[-4, 5, -3]}
+        intensity={3.5}
         color="#38BDF8"
-        angle={0.6}
-        penumbra={0.8}
+        angle={0.65}
+        penumbra={0.7}
+        distance={14}
       />
 
-      {/* Purple Accent Light (Back-Right) */}
+      {/* 5. Neon Purple Accent Light (Back-Right) */}
       <spotLight
-        position={[3.5, 3.5, -2]}
-        intensity={2.2}
+        position={[4, 4.5, -2.5]}
+        intensity={2.8}
         color="#A855F7"
-        angle={0.6}
-        penumbra={0.9}
+        angle={0.65}
+        penumbra={0.8}
+        distance={14}
       />
 
-      {/* Warm Floor Bounce / Fill Light for Footwear & Shadow Detail */}
-      <pointLight position={[0, 0.4, 1.8]} intensity={0.5} color="#F59E0B" distance={4} />
+      {/* 6. Ground Bounce Light - Illuminates Boots, Cargo Trousers & Floor Contact */}
+      <pointLight position={[0, 0.35, 1.8]} intensity={0.7} color="#FBBF24" distance={4.5} />
 
-      {/* Soft Top Down Neon Gantry Overhead Light */}
-      <pointLight position={[0, 4.2, 0]} intensity={1.0} color="#818CF8" distance={6} />
+      {/* 7. Overhead Gantry Spotlight - Accents Safety Hard Hat & Shoulders */}
+      <pointLight position={[0, 4.8, 0]} intensity={1.2} color="#C7D2FE" distance={7} />
     </>
   );
 };

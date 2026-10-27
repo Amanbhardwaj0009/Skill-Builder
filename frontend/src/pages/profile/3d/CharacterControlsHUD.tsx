@@ -11,9 +11,12 @@ import {
   Zap,
   Smile,
   Shield,
-  HelpCircle,
+  Eye,
+  Camera,
 } from 'lucide-react';
 import { CharacterAnimationName } from './AnimatedCharacter';
+
+export type CameraPresetView = 'threeQuarter' | 'front' | 'side' | 'back' | 'closeup';
 
 interface CharacterControlsHUDProps {
   currentAnimation: CharacterAnimationName;
@@ -23,6 +26,7 @@ interface CharacterControlsHUDProps {
   onZoomIn: () => void;
   onZoomOut: () => void;
   onResetCamera: () => void;
+  onSetCameraPreset?: (preset: CameraPresetView) => void;
   interactiveDialogue?: string | null;
   studentName?: string;
   careerName?: string;
@@ -36,13 +40,14 @@ export const CharacterControlsHUD: React.FC<CharacterControlsHUDProps> = ({
   onZoomIn,
   onZoomOut,
   onResetCamera,
+  onSetCameraPreset,
   interactiveDialogue,
   studentName = 'Alex',
   careerName = 'Manufacturing Engineer',
 }) => {
   return (
     <div className="absolute bottom-2 inset-x-0 z-20 flex flex-col items-center pointer-events-none px-4">
-      {/* Interactive Dialogue Speech Bubble (if active) */}
+      {/* Interactive Dialogue Speech Bubble */}
       {interactiveDialogue && (
         <div className="pointer-events-auto mb-3 max-w-md rounded-2xl border border-cyan-400/50 bg-[#0C1222]/95 px-4 py-2.5 shadow-glow-cyan backdrop-blur-xl animate-fade-in text-center">
           <div className="flex items-center justify-center gap-1.5 text-[10px] font-bold text-cyan-400 uppercase tracking-wider mb-0.5">
@@ -59,7 +64,41 @@ export const CharacterControlsHUD: React.FC<CharacterControlsHUDProps> = ({
 
       {/* Floating Control HUD Bar */}
       <div className="pointer-events-auto flex flex-wrap items-center justify-center gap-2 rounded-2xl border border-purple-500/30 bg-[#0C1222]/90 p-2 backdrop-blur-xl shadow-2xl">
-        {/* Camera Control Group */}
+        {/* Camera Preset Angles */}
+        {onSetCameraPreset && (
+          <div className="flex items-center gap-1 pr-2 border-r border-gray-800">
+            <button
+              onClick={() => onSetCameraPreset('threeQuarter')}
+              className="rounded-xl px-2 py-1 text-[11px] font-bold text-gray-400 hover:bg-purple-600/20 hover:text-white transition"
+              title="3/4 Classic Lobby Angle"
+            >
+              3/4
+            </button>
+            <button
+              onClick={() => onSetCameraPreset('front')}
+              className="rounded-xl px-2 py-1 text-[11px] font-bold text-gray-400 hover:bg-purple-600/20 hover:text-white transition"
+              title="Frontal View"
+            >
+              Front
+            </button>
+            <button
+              onClick={() => onSetCameraPreset('side')}
+              className="rounded-xl px-2 py-1 text-[11px] font-bold text-gray-400 hover:bg-purple-600/20 hover:text-white transition"
+              title="Profile Side View"
+            >
+              Side
+            </button>
+            <button
+              onClick={() => onSetCameraPreset('closeup')}
+              className="rounded-xl px-2 py-1 text-[11px] font-bold text-gray-400 hover:bg-purple-600/20 hover:text-white transition"
+              title="Close-Up Face Inspection"
+            >
+              Face
+            </button>
+          </div>
+        )}
+
+        {/* Camera Manual Control Group (Rotate, Zoom, Reset) */}
         <div className="flex items-center gap-1 pr-2 border-r border-gray-800">
           <button
             onClick={onRotateLeft}
@@ -67,7 +106,7 @@ export const CharacterControlsHUD: React.FC<CharacterControlsHUDProps> = ({
             title="Rotate Left"
             aria-label="Rotate camera left"
           >
-            <RotateCcw className="h-4 w-4" />
+            <RotateCcw className="h-3.5 w-3.5" />
           </button>
           <button
             onClick={onRotateRight}
@@ -75,7 +114,7 @@ export const CharacterControlsHUD: React.FC<CharacterControlsHUDProps> = ({
             title="Rotate Right"
             aria-label="Rotate camera right"
           >
-            <RotateCw className="h-4 w-4" />
+            <RotateCw className="h-3.5 w-3.5" />
           </button>
           <button
             onClick={onZoomIn}
@@ -83,7 +122,7 @@ export const CharacterControlsHUD: React.FC<CharacterControlsHUDProps> = ({
             title="Zoom In"
             aria-label="Zoom in camera"
           >
-            <ZoomIn className="h-4 w-4" />
+            <ZoomIn className="h-3.5 w-3.5" />
           </button>
           <button
             onClick={onZoomOut}
@@ -91,7 +130,7 @@ export const CharacterControlsHUD: React.FC<CharacterControlsHUDProps> = ({
             title="Zoom Out"
             aria-label="Zoom out camera"
           >
-            <ZoomOut className="h-4 w-4" />
+            <ZoomOut className="h-3.5 w-3.5" />
           </button>
           <button
             onClick={onResetCamera}
@@ -99,7 +138,7 @@ export const CharacterControlsHUD: React.FC<CharacterControlsHUDProps> = ({
             title="Reset Framing"
             aria-label="Reset camera framing"
           >
-            <Maximize2 className="h-4 w-4" />
+            <Maximize2 className="h-3.5 w-3.5" />
           </button>
         </div>
 
@@ -146,7 +185,7 @@ export const CharacterControlsHUD: React.FC<CharacterControlsHUDProps> = ({
             <span>Walk</span>
           </button>
 
-          {/* Run / Sprint Action */}
+          {/* Sprint Action */}
           <button
             onClick={() => onSetAnimation('run')}
             className={`flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-bold transition ${
@@ -160,7 +199,7 @@ export const CharacterControlsHUD: React.FC<CharacterControlsHUDProps> = ({
             <span>Sprint</span>
           </button>
 
-          {/* Emote / Head Shake */}
+          {/* Inspect / Head Shake */}
           <button
             onClick={() => onSetAnimation('headShake')}
             className={`flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-bold transition ${
@@ -168,10 +207,10 @@ export const CharacterControlsHUD: React.FC<CharacterControlsHUDProps> = ({
                 ? 'bg-emerald-600 text-white shadow-sm'
                 : 'text-gray-400 hover:bg-[#121B2D] hover:text-white'
             }`}
-            title="Play Emote Head Shake"
+            title="Inspect Environment"
           >
             <Smile className="h-3.5 w-3.5 text-emerald-400" />
-            <span>Emote</span>
+            <span>Inspect</span>
           </button>
         </div>
       </div>
