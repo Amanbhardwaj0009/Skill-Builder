@@ -406,3 +406,122 @@ export const INITIAL_MISSIONS: WorldMission[] = [
     prerequisites: ['m6_api_connections'],
   },
 ];
+
+export const getUpgradeCost = (building: Building): number => {
+  // Level 1 -> 2: 100 Cr
+  // Level 2 -> 3: 175 Cr
+  // Level 3 -> 4: 250 Cr
+  // Level 4 -> 5: 350 Cr
+  return 100 + (building.level - 1) * 75;
+};
+
+export const getUpgradeBenefits = (building: Building, nextLevel: number): string[] => {
+  const genericBenefits: Record<number, string[]> = {
+    2: [
+      `+25% Civic credit yield efficiency`,
+      `Unlocks Tier 2 architectural neon accents & roof antenna`,
+      `Expands district grid coverage & bandwidth`,
+    ],
+    3: [
+      `+50% Faster mission mastery bonus multipliers`,
+      `Unlocks high-frequency telemetry & holographic displays`,
+      `Authorizes automated power grid load balancing`,
+    ],
+    4: [
+      `Doubles daily civic resource yield`,
+      `Unlocks advanced skyline illumination & drone docks`,
+      `Activates quantum computing sub-circuits`,
+    ],
+    5: [
+      `Maximum Tier Sovereign Citadel status`,
+      `Permanent city-wide XP boost (+15%)`,
+      `Golden skyline monument beacon`,
+    ],
+  };
+
+  return genericBenefits[nextLevel] || [
+    `Increases structure throughput by 30%`,
+    `Upgrades aesthetic architectural shaders`,
+    `Boosts city progression score`,
+  ];
+};
+
+export interface MissionStarterTask {
+  initialCode: string;
+  expectedKeywords: string[];
+  hint: string;
+}
+
+export const MISSION_STARTERS: Record<string, MissionStarterTask> = {
+  m1_html_basics: {
+    initialCode: `<!-- City Visitor Center Portal -->
+<header>
+  <h1>Neo Developer City Visitor Center</h1>
+</header>
+<main>
+  <p>Welcome to our growing digital metropolis built by code.</p>
+  <ul>
+    <li>Genesis Core Plaza</li>
+    <li>Web Station Terminal</li>
+    <li>Smart Control Grid</li>
+  </ul>
+  <img src="/visitor-center.png" alt="City Center Hub" />
+</main>`,
+    expectedKeywords: ['<h1>', '</h1>', '<p>', '</p>', '<ul>', '</ul>', '<li>', '<img'],
+    hint: 'Ensure your HTML markup contains an <h1> heading, a <p> paragraph, a <ul> list with items, and an <img> tag with an alt attribute.',
+  },
+  m2_css_styling: {
+    initialCode: `/* Web Station Glassmorphic Styling */
+.building-card {
+  background: linear-gradient(135deg, #101626 0%, #1e1b4b 100%);
+  border: 1px solid rgba(139, 92, 246, 0.4);
+  box-shadow: 0 0 20px rgba(56, 189, 248, 0.3);
+  display: flex;
+  flex-direction: column;
+  transition: all 0.3s ease;
+}
+
+.building-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 0 30px rgba(139, 92, 246, 0.6);
+}`,
+    expectedKeywords: ['linear-gradient', 'box-shadow', 'display: flex', 'transition', ':hover'],
+    hint: 'Use a linear-gradient background, flexbox layout, glowing box-shadow, and a smooth hover transition.',
+  },
+  m3_js_interactive: {
+    initialCode: `// Smart City Grid Event Controller
+function toggleStreetlights(isNight) {
+  const lights = document.querySelectorAll('.streetlight');
+  lights.forEach(light => {
+    light.classList.toggle('active', isNight);
+  });
+  return isNight ? 'Streetlights Activated' : 'Streetlights Standby';
+}
+
+function updatePopulationCounter(newArrivals) {
+  let count = 1000;
+  count += newArrivals;
+  return count;
+}`,
+    expectedKeywords: ['function', 'toggle', 'lights', 'count'],
+    hint: 'Define interactive functions to toggle streetlight classes and dynamically increment city population counters.',
+  },
+  m4_python_automation: {
+    initialCode: `# Automation Factory Energy Calculator
+def calculate_city_energy(buildings):
+    total_mw = 0
+    overloaded = []
+    for b in buildings:
+        usage = b.get('power_kw', 0) / 1000
+        total_mw += usage
+        if usage > 50:
+            overloaded.append(b['id'])
+    return {
+        'total_megawatts': round(total_mw, 2),
+        'overloaded_units': overloaded
+    }`,
+    expectedKeywords: ['def calculate_city_energy', 'total_mw', 'for', 'return'],
+    hint: 'Define a Python function iterating over building records to compute megawatt consumption and return diagnostics.',
+  },
+};
+

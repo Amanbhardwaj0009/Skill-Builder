@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import confetti from 'canvas-confetti';
 import { useAuth } from '../../context/AuthContext';
 import {
   INITIAL_PLOTS,
@@ -9,11 +10,16 @@ import {
   Plot,
   Building,
   WorldMission,
+  getUpgradeCost,
 } from './worldData';
 import { WorldCanvas } from './WorldCanvas';
 import { MissionPanel } from './MissionPanel';
 import { BuildingDetailPanel } from './BuildingDetailPanel';
 import { WorldHUD } from './WorldHUD';
+import { InsufficientCreditsModal } from './InsufficientCreditsModal';
+import { UpgradeConfirmationModal } from './UpgradeConfirmationModal';
+import { UpgradeSuccessModal } from './UpgradeSuccessModal';
+import { MissionActivityModal } from './MissionActivityModal';
 import {
   Globe,
   Sparkles,
@@ -26,6 +32,9 @@ import {
   Layers,
   MapPin,
   Trophy,
+  Coins,
+  ChevronDown,
+  TrendingUp,
 } from 'lucide-react';
 
 export const BuildWorldPage: React.FC = () => {
@@ -37,6 +46,9 @@ export const BuildWorldPage: React.FC = () => {
   const [isEditingName, setIsEditingName] = useState(false);
   const [worldLevel, setWorldLevel] = useState<number>(1);
   const [worldCredits, setWorldCredits] = useState<number>(250);
+  const [creditsEarned, setCreditsEarned] = useState<number>(250);
+  const [creditsSpent, setCreditsSpent] = useState<number>(0);
+  const [completedMissionIds, setCompletedMissionIds] = useState<string[]>([]);
   const [plots, setPlots] = useState<Plot[]>(INITIAL_PLOTS);
   const [buildings, setBuildings] = useState<Record<string, Building>>(INITIAL_BUILDINGS);
   const [missions, setMissions] = useState<WorldMission[]>(INITIAL_MISSIONS);
@@ -47,8 +59,48 @@ export const BuildWorldPage: React.FC = () => {
 
   // Mobile navigation tabs
   const [activeMobileView, setActiveMobileView] = useState<'canvas' | 'missions' | 'details'>('canvas');
+  const [showCreditDetails, setShowCreditDetails] = useState<boolean>(false);
 
-  // Load from local storage for seamless Phase 1 persistence
+  // Modals state
+  const [insufficientModal, setInsufficientModal] = useState<{
+    isOpen: boolean;
+    buildingName: string;
+    requiredCost: number;
+  }>({
+    isOpen: false,
+    buildingName: '',
+    requiredCost: 0,
+  });
+
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    building: Building | null;
+  }>({
+    isOpen: false,
+    building: null,
+  });
+
+  const [successModal, setSuccessModal] = useState<{
+    isOpen: boolean;
+    building: Building | null;
+    cost: number;
+    newCredits: number;
+  }>({
+    isOpen: false,
+    building: null,
+    cost: 0,
+    newCredits: 0,
+  });
+
+  const [missionModal, setMissionModal] = useState<{
+    isOpen: boolean;
+    mission: WorldMission | null;
+  }>({
+    isOpen: false,
+    mission: null,
+  });
+
+  // Load from local storage for seamless persistence
   useEffect(() => {
     const savedWorld = localStorage.getItem('skillquest_world_state');
     if (savedWorld) {
@@ -56,7 +108,10 @@ export const BuildWorldPage: React.FC = () => {
         const parsed = JSON.parse(savedWorld);
         if (parsed.worldName) setWorldName(parsed.worldName);
         if (parsed.worldLevel) setWorldLevel(parsed.worldLevel);
-        if (parsed.worldCredits) setWorldCredits(parsed.worldCredits);
+        if (parsed.worldCredits !== undefined) setWorldCredits(parsed.worldCredits);
+        if (parsed.creditsEarned !== undefined) setCreditsEarned(parsed.creditsEarned);
+        if (parsed.creditsSpent !== undefined) setCreditsSpent(parsed.creditsSpent);
+        if (parsed.completedMissionIds) setCompletedMissionIds(parsed.completedMissionIds);
         if (parsed.plots) setPlots(parsed.plots);
         if (parsed.buildings) setBuildings(parsed.buildings);
         if (parsed.missions) setMissions(parsed.missions);
@@ -73,6 +128,9 @@ export const BuildWorldPage: React.FC = () => {
         worldName,
         worldLevel,
         worldCredits,
+        creditsEarned,
+        creditsSpent,
+        completedMissionIds,
         plots,
         buildings,
         missions,
@@ -88,39 +146,210 @@ export const BuildWorldPage: React.FC = () => {
 
   const handleSelectMission = (mission: WorldMission) => {
     setSelectedMissionId(mission.id);
-    // If the mission unlocks a building, also highlight that building or its plot
     const targetPlot = plots.find((p) => p.buildingId === mission.unlocksBuildingId);
     if (targetPlot) {
       setSelectedPlotId(targetPlot.id);
     }
   };
 
-  const handleUpgradeBuilding = (buildingId: string) => {
-    if (worldCredits < 100) {
-      alert('Insufficient City Credits! Complete missions to earn more credits.');
-      return;
-    }
+  // Triggered when user clicks "Upgrade Structure" in details panel
+  const handleInitiateUpgrade = (buildingId: string) => {
     const current = buildings[buildingId];
     if (!current || current.level >= current.maxLevel) return;
 
+    const cost = getUpgradeCost(current);
+
+    if (worldCredits < cost) {
+      // Replaces native alert with high-polish insufficient credit modal
+      setInsufficientModal({
+        isOpen: true,
+        buildingName: current.name,
+        requiredCost: cost,
+      });
+      return;
+    }
+
+    // Opens confirmation dialog
+    setConfirmModal({
+      isOpen: true,
+      building: current,
+    });
+  };
+
+  // Confirmed upgrade execution: single atomic deduction & state update
+  const handleConfirmUpgrade = (buildingId: string) => {
+    const current = buildings[buildingId];
+    if (!current || current.level >= current.maxLevel) return;
+
+    const cost = getUpgradeCost(current);
+
+    // Revalidate balance before processing
+    if (worldCredits < cost) {
+      setInsufficientModal({
+        isOpen: true,
+        buildingName: current.name,
+        requiredCost: cost,
+      });
+      return;
+    }
+
+    const newCredits = worldCredits - cost;
+    const newSpent = creditsSpent + cost;
+    const newLevel = current.level + 1;
+
+    const updatedBuilding: Building = {
+      ...current,
+      level: newLevel,
+    };
+
     const updatedBuildings = {
       ...buildings,
-      [buildingId]: {
-        ...current,
-        level: current.level + 1,
-      },
+      [buildingId]: updatedBuilding,
     };
-    const newCredits = worldCredits - 100;
+
     setBuildings(updatedBuildings);
     setWorldCredits(newCredits);
-    saveWorldState({ buildings: updatedBuildings, worldCredits: newCredits });
+    setCreditsSpent(newSpent);
+
+    saveWorldState({
+      buildings: updatedBuildings,
+      worldCredits: newCredits,
+      creditsSpent: newSpent,
+    });
+
+    // Celebration Confetti
+    confetti({
+      particleCount: 70,
+      spread: 60,
+      origin: { y: 0.65 },
+    });
+
+    // Open success modal
+    setSuccessModal({
+      isOpen: true,
+      building: updatedBuilding,
+      cost,
+      newCredits,
+    });
+  };
+
+  // Mission Completion & Reward Granting (Idempotent & Anti-Duplication)
+  const handleCompleteMission = (
+    missionId: string,
+    rewardXP: number,
+    rewardCredits: number
+  ) => {
+    // 1. Duplicate prevention check
+    if (completedMissionIds.includes(missionId)) {
+      console.warn(`Mission ${missionId} already completed. No duplicate rewards granted.`);
+      return;
+    }
+
+    const updatedCompletedIds = [...completedMissionIds, missionId];
+    const newCredits = worldCredits + rewardCredits;
+    const newEarned = creditsEarned + rewardCredits;
+
+    // 2. Update missions list
+    const updatedMissions = missions.map((m) => {
+      if (m.id === missionId) {
+        return { ...m, status: 'completed' as const };
+      }
+      return m;
+    });
+
+    // 3. Unlock target building
+    const completedMission = missions.find((m) => m.id === missionId);
+    let updatedBuildings = { ...buildings };
+    let updatedPlots = [...plots];
+
+    if (completedMission && completedMission.unlocksBuildingId) {
+      const bId = completedMission.unlocksBuildingId;
+      if (updatedBuildings[bId]) {
+        updatedBuildings[bId] = {
+          ...updatedBuildings[bId],
+          status: 'unlocked',
+        };
+
+        // If building is not yet placed, place it in the first open plot of its district
+        const alreadyPlaced = updatedPlots.some((p) => p.buildingId === bId);
+        if (!alreadyPlaced) {
+          const openPlotIndex = updatedPlots.findIndex(
+            (p) => !p.buildingId && !p.isLocked && p.districtId === updatedBuildings[bId].district
+          );
+          if (openPlotIndex !== -1) {
+            updatedPlots[openPlotIndex] = {
+              ...updatedPlots[openPlotIndex],
+              buildingId: bId,
+            };
+            setSelectedPlotId(updatedPlots[openPlotIndex].id);
+          } else {
+            // Alternatively place on any open unlocked lot
+            const anyOpenPlotIndex = updatedPlots.findIndex((p) => !p.buildingId && !p.isLocked);
+            if (anyOpenPlotIndex !== -1) {
+              updatedPlots[anyOpenPlotIndex] = {
+                ...updatedPlots[anyOpenPlotIndex],
+                buildingId: bId,
+              };
+              setSelectedPlotId(updatedPlots[anyOpenPlotIndex].id);
+            }
+          }
+        }
+      }
+    }
+
+    // 4. Unlock next prerequisite missions
+    const finalMissions = updatedMissions.map((m) => {
+      if (m.status === 'locked') {
+        const allPrereqsMet = m.prerequisites.every((prereqId) =>
+          updatedCompletedIds.includes(prereqId)
+        );
+        if (allPrereqsMet) {
+          return { ...m, status: 'available' as const };
+        }
+      }
+      return m;
+    });
+
+    // 5. Check World Level Expansion
+    let newWorldLevel = worldLevel;
+    if (updatedCompletedIds.length >= 2 && newWorldLevel < 2) {
+      newWorldLevel = 2;
+      updatedPlots = updatedPlots.map((p) =>
+        p.requiredWorldLevel <= 2 ? { ...p, isLocked: false } : p
+      );
+    }
+    if (updatedCompletedIds.length >= 4 && newWorldLevel < 3) {
+      newWorldLevel = 3;
+      updatedPlots = updatedPlots.map((p) =>
+        p.requiredWorldLevel <= 3 ? { ...p, isLocked: false } : p
+      );
+    }
+
+    // Apply state updates
+    setCompletedMissionIds(updatedCompletedIds);
+    setWorldCredits(newCredits);
+    setCreditsEarned(newEarned);
+    setMissions(finalMissions);
+    setBuildings(updatedBuildings);
+    setPlots(updatedPlots);
+    setWorldLevel(newWorldLevel);
+
+    saveWorldState({
+      completedMissionIds: updatedCompletedIds,
+      worldCredits: newCredits,
+      creditsEarned: newEarned,
+      missions: finalMissions,
+      buildings: updatedBuildings,
+      plots: updatedPlots,
+      worldLevel: newWorldLevel,
+    });
   };
 
   const selectedPlot = plots.find((p) => p.id === selectedPlotId) || null;
   const selectedBuilding = selectedPlot?.buildingId ? buildings[selectedPlot.buildingId] : null;
 
   const unlockedCount = Object.values(buildings).filter((b) => b.status === 'unlocked' || b.level > 0).length;
-  const completedMissionsCount = missions.filter((m) => m.status === 'completed').length;
+  const completedMissionsCount = completedMissionIds.length;
 
   return (
     <div className="space-y-4 pb-8 animate-fade-in">
@@ -182,8 +411,62 @@ export const BuildWorldPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Right: Student Level, XP and Settings */}
+          {/* Right: City Credits Indicator, Level, XP and Settings */}
           <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+            {/* Prominent City Credits Resource Indicator */}
+            <div className="relative">
+              <button
+                onClick={() => setShowCreditDetails(!showCreditDetails)}
+                className="flex items-center gap-2 rounded-xl border border-amber-500/40 bg-gradient-to-r from-amber-500/15 to-[#121B2D] px-3 py-1.5 shadow-glow-amber/20 hover:border-amber-400 transition"
+                title="City Credits Treasury (Click for breakdown)"
+              >
+                <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-amber-500/20 text-amber-400">
+                  <Coins className="h-3.5 w-3.5 animate-pulse" />
+                </div>
+                <div className="text-left">
+                  <span className="block text-[8px] font-bold uppercase text-amber-400/80 leading-none">
+                    City Credits
+                  </span>
+                  <span className="text-xs font-bold text-amber-300 font-mono">
+                    {worldCredits} Cr
+                  </span>
+                </div>
+                <ChevronDown className="h-3 w-3 text-amber-400/70" />
+              </button>
+
+              {/* Credit Breakdown Tooltip / Popover */}
+              {showCreditDetails && (
+                <div className="absolute right-0 mt-2 w-56 rounded-2xl border border-amber-500/30 bg-[#0C1222] p-3 text-xs shadow-2xl backdrop-blur-xl z-40 animate-fade-in space-y-2">
+                  <div className="flex items-center justify-between border-b border-gray-800 pb-1.5 font-bold text-white">
+                    <span className="flex items-center gap-1.5">
+                      <Coins className="h-3.5 w-3.5 text-amber-400" /> Treasury Status
+                    </span>
+                    <span className="text-[10px] text-amber-400">{worldCredits} Cr</span>
+                  </div>
+                  <div className="space-y-1 text-[11px] text-gray-300">
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Earned (Missions):</span>
+                      <span className="font-bold text-emerald-400">+{creditsEarned} Cr</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Spent (Upgrades):</span>
+                      <span className="font-bold text-rose-400">-{creditsSpent} Cr</span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setShowCreditDetails(false);
+                      setActiveMobileView('missions');
+                    }}
+                    className="w-full mt-2 rounded-lg bg-amber-600/20 border border-amber-500/30 py-1 text-[10px] font-bold text-amber-300 hover:bg-amber-600/30 transition text-center"
+                  >
+                    Earn More Credits →
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Level & XP */}
             <div className="flex items-center gap-2 rounded-xl border border-purple-500/30 bg-[#121B2D] px-3 py-1.5 shadow-sm">
               <span className="rounded bg-gradient-to-r from-purple-500 to-cyan-400 px-1.5 py-0.5 text-[9px] font-black text-black">
                 LEVEL {user?.currentLevel || 1}
@@ -257,7 +540,14 @@ export const BuildWorldPage: React.FC = () => {
             missions={missions}
             buildings={buildings}
             onSelectMission={handleSelectMission}
+            onLaunchMission={(mission) =>
+              setMissionModal({
+                isOpen: true,
+                mission,
+              })
+            }
             selectedMissionId={selectedMissionId || undefined}
+            worldCredits={worldCredits}
           />
         </div>
 
@@ -289,9 +579,14 @@ export const BuildWorldPage: React.FC = () => {
             onClose={() => setSelectedPlotId(null)}
             onLaunchMission={(mId) => {
               const mission = missions.find((m) => m.id === mId);
-              if (mission) handleSelectMission(mission);
+              if (mission) {
+                setMissionModal({
+                  isOpen: true,
+                  mission,
+                });
+              }
             }}
-            onUpgradeBuilding={handleUpgradeBuilding}
+            onUpgradeBuilding={handleInitiateUpgrade}
             worldCredits={worldCredits}
           />
         </div>
@@ -307,7 +602,58 @@ export const BuildWorldPage: React.FC = () => {
         totalBuildingsCount={Object.keys(buildings).length}
         completedMissionsCount={completedMissionsCount}
         totalMissionsCount={missions.length}
-        nextMilestone="Unlock Smart City Infrastructure (Level 2)"
+        nextMilestone={
+          worldLevel === 1
+            ? 'Complete 2 missions to unlock Sector L2'
+            : worldLevel === 2
+            ? 'Complete 4 missions to unlock Data & AI Sector L3'
+            : 'Metropolis Core at Peak Optimization'
+        }
+      />
+
+      {/* Modals */}
+      {/* 1. Insufficient City Credits Modal */}
+      <InsufficientCreditsModal
+        isOpen={insufficientModal.isOpen}
+        onClose={() => setInsufficientModal({ ...insufficientModal, isOpen: false })}
+        availableCredits={worldCredits}
+        requiredCredits={insufficientModal.requiredCost}
+        buildingName={insufficientModal.buildingName}
+        onEarnCredits={() => {
+          setActiveMobileView('missions');
+          setSelectedPlotId(null);
+        }}
+      />
+
+      {/* 2. Upgrade Confirmation Modal */}
+      <UpgradeConfirmationModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+        building={confirmModal.building}
+        availableCredits={worldCredits}
+        onConfirmUpgrade={handleConfirmUpgrade}
+      />
+
+      {/* 3. Upgrade Success Modal */}
+      <UpgradeSuccessModal
+        isOpen={successModal.isOpen}
+        onClose={() => setSuccessModal({ ...successModal, isOpen: false })}
+        building={successModal.building}
+        cost={successModal.cost}
+        newCredits={successModal.newCredits}
+      />
+
+      {/* 4. Interactive Mission Workspace Modal */}
+      <MissionActivityModal
+        isOpen={missionModal.isOpen}
+        onClose={() => setMissionModal({ ...missionModal, isOpen: false })}
+        mission={missionModal.mission}
+        building={
+          missionModal.mission
+            ? buildings[missionModal.mission.unlocksBuildingId] || null
+            : null
+        }
+        onCompleteMission={handleCompleteMission}
       />
     </div>
   );

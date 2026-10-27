@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plot, Building, WorldMission } from './worldData';
+import { Plot, Building, WorldMission, getUpgradeCost } from './worldData';
 import {
   Building2,
   Lock,
@@ -14,6 +14,7 @@ import {
   Layers,
   ChevronRight,
   ShieldCheck,
+  Coins,
 } from 'lucide-react';
 
 interface BuildingDetailPanelProps {
@@ -237,21 +238,39 @@ export const BuildingDetailPanel: React.FC<BuildingDetailPanelProps> = ({
       </div>
 
       {/* Footer Upgrade Button */}
-      <div className="mt-3 pt-3 border-t border-gray-800">
+      <div className="mt-3 pt-3 border-t border-gray-800 space-y-2">
+        {building.level < building.maxLevel && (
+          <div className="flex items-center justify-between text-[11px] px-1">
+            <span className="text-gray-400">Upgrade Cost:</span>
+            <span className="font-bold text-amber-300 font-mono flex items-center gap-1">
+              <Coins className="h-3.5 w-3.5 text-amber-400" />
+              {getUpgradeCost(building)} Cr
+            </span>
+          </div>
+        )}
+
         <button
           onClick={() => onUpgradeBuilding && onUpgradeBuilding(building.id)}
           disabled={building.level >= building.maxLevel}
           className={`w-full flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-bold transition shadow-md ${
             building.level >= building.maxLevel
               ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
+              : worldCredits < getUpgradeCost(building)
+              ? 'bg-gradient-to-r from-amber-600/80 to-purple-700/80 text-white hover:brightness-110 shadow-glow-amber/20'
               : 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:brightness-110 shadow-glow-purple/20'
           }`}
         >
           <ArrowUpCircle className="h-4 w-4" />
           {building.level >= building.maxLevel
             ? 'Maximum Tier Reached'
-            : `Upgrade Structure (100 Cr)`}
+            : `Upgrade to Tier ${building.level + 1} (${getUpgradeCost(building)} Cr)`}
         </button>
+
+        {building.level < building.maxLevel && worldCredits < getUpgradeCost(building) && (
+          <p className="text-[10px] text-amber-400/90 text-center font-medium">
+            Requires {getUpgradeCost(building) - worldCredits} more credits to upgrade
+          </p>
+        )}
       </div>
     </div>
   );

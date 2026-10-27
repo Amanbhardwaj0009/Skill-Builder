@@ -17,14 +17,18 @@ interface MissionPanelProps {
   missions: WorldMission[];
   buildings: Record<string, Building>;
   onSelectMission: (mission: WorldMission) => void;
+  onLaunchMission?: (mission: WorldMission) => void;
   selectedMissionId?: string;
+  worldCredits: number;
 }
 
 export const MissionPanel: React.FC<MissionPanelProps> = ({
   missions,
   buildings,
   onSelectMission,
+  onLaunchMission,
   selectedMissionId,
+  worldCredits,
 }) => {
   const [filterTab, setFilterTab] = useState<'available' | 'in_progress' | 'completed' | 'locked'>('available');
 
@@ -62,9 +66,15 @@ export const MissionPanel: React.FC<MissionPanelProps> = ({
             <p className="text-[10px] text-gray-400">Practical Learning Missions</p>
           </div>
         </div>
-        <span className="rounded-full bg-cyan-500/10 px-2 py-0.5 text-[10px] font-bold text-cyan-300 border border-cyan-500/20">
-          {missions.filter((m) => m.status === 'completed').length}/{missions.length} Done
-        </span>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 rounded-xl border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-300">
+            <Coins className="h-3 w-3 text-amber-400" />
+            <span>{worldCredits} Cr</span>
+          </div>
+          <span className="rounded-full bg-cyan-500/10 px-2 py-0.5 text-[10px] font-bold text-cyan-300 border border-cyan-500/20">
+            {missions.filter((m) => m.status === 'completed').length}/{missions.length}
+          </span>
+        </div>
       </div>
 
       {/* Filter Tabs */}
@@ -91,13 +101,25 @@ export const MissionPanel: React.FC<MissionPanelProps> = ({
       {/* Mission List */}
       <div className="flex-1 overflow-y-auto space-y-2.5 pr-1">
         {filteredMissions.length === 0 ? (
-          <div className="h-44 flex flex-col items-center justify-center text-center p-4 rounded-2xl border border-gray-800/80 bg-[#080B14]/40">
+          <div className="h-48 flex flex-col items-center justify-center text-center p-4 rounded-2xl border border-gray-800/80 bg-[#080B14]/40">
             <Layers className="h-8 w-8 text-gray-600 mb-2" />
-            <p className="text-xs font-bold text-gray-400">No {filterTab.replace('_', ' ')} missions</p>
-            <p className="text-[10px] text-gray-500 mt-1">
-              {filterTab === 'locked'
+            <p className="text-xs font-bold text-gray-300">
+              {filterTab === 'available'
+                ? missions.every((m) => m.status === 'completed')
+                  ? 'All Missions Mastered!'
+                  : 'No missions available right now.'
+                : filterTab === 'completed'
+                ? 'No completed missions yet'
+                : `No ${filterTab.replace('_', ' ')} missions`}
+            </p>
+            <p className="text-[10px] text-gray-500 mt-1 max-w-[200px]">
+              {filterTab === 'available' && missions.every((m) => m.status === 'completed')
+                ? 'You have completed all currently available credit missions.'
+                : filterTab === 'available'
+                ? 'Check back after new missions are added or complete current prerequisites.'
+                : filterTab === 'locked'
                 ? 'Great job! You have unlocked all available city missions.'
-                : 'Check other tabs to explore active learning objectives.'}
+                : 'Complete active learning objectives to earn more City Credits.'}
             </p>
           </div>
         ) : (
@@ -108,7 +130,12 @@ export const MissionPanel: React.FC<MissionPanelProps> = ({
             return (
               <div
                 key={mission.id}
-                onClick={() => onSelectMission(mission)}
+                onClick={() => {
+                  onSelectMission(mission);
+                  if (mission.status === 'available' || mission.status === 'in_progress') {
+                    if (onLaunchMission) onLaunchMission(mission);
+                  }
+                }}
                 className={`group relative rounded-2xl border p-3.5 transition cursor-pointer ${
                   isSelected
                     ? 'border-purple-500 bg-purple-950/20 shadow-glow-purple/20'
