@@ -3,6 +3,7 @@ import api from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { IndustrialEnvironment } from './IndustrialEnvironment';
 import { VirtualCharacter } from './VirtualCharacter';
+import { CharacterScene } from './3d/CharacterScene';
 import { MyProfilePanel } from './MyProfilePanel';
 import { CareerCoachPanel } from './CareerCoachPanel';
 import { GamingHUD } from './GamingHUD';
@@ -27,6 +28,7 @@ export const ProfilePage: React.FC = () => {
   // Panels visibility (on mobile/desktop toggle)
   const [coachOpen, setCoachOpen] = useState(true);
   const [mobileTab, setMobileTab] = useState<'profile' | 'character' | 'coach'>('character');
+  const [use3DMode, setUse3DMode] = useState<boolean>(true);
 
   // Modals state
   const [pathwaysModalOpen, setPathwaysModalOpen] = useState(false);
@@ -154,16 +156,40 @@ export const ProfilePage: React.FC = () => {
           />
         </div>
 
-        {/* Element 2: Central Full-Body Virtual Human Character (Col 6) */}
+        {/* Element 2: Realistic Animated 3D Character Lobby (Col 6) */}
         <div
           className={`lg:col-span-6 xl:col-span-6 h-full flex flex-col items-center justify-end relative pb-2 ${
             mobileTab === 'character' ? 'flex' : 'hidden lg:flex'
           }`}
         >
-          <VirtualCharacter
-            careerName={currentCareer}
-            studentName={user?.name?.split(' ')[0] || 'Alex'}
-          />
+          {/* 3D Engine Mode Toggle Badge */}
+          <div className="absolute top-2 right-4 z-30 flex items-center gap-1.5 rounded-xl border border-purple-500/30 bg-[#0C1222]/80 px-2.5 py-1 text-[10px] font-bold text-gray-300 backdrop-blur-md">
+            <span
+              className={`h-2 w-2 rounded-full ${
+                use3DMode ? 'bg-cyan-400 animate-pulse' : 'bg-gray-500'
+              }`}
+            />
+            <span>{use3DMode ? '3D Game Lobby' : '2D Mode'}</span>
+            <button
+              onClick={() => setUse3DMode(!use3DMode)}
+              className="ml-1 text-purple-400 hover:text-white underline decoration-purple-500"
+            >
+              {use3DMode ? 'Switch to 2D' : 'Switch to 3D'}
+            </button>
+          </div>
+
+          {use3DMode ? (
+            <CharacterScene
+              careerName={currentCareer}
+              studentName={user?.name?.split(' ')[0] || 'Alex'}
+              onFallbackTo2D={() => setUse3DMode(false)}
+            />
+          ) : (
+            <VirtualCharacter
+              careerName={currentCareer}
+              studentName={user?.name?.split(' ')[0] || 'Alex'}
+            />
+          )}
         </div>
 
         {/* Element 4: Right Floating "Career Coach" Panel (Col 3) */}
