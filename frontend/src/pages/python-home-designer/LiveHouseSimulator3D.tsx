@@ -25,7 +25,9 @@ import {
 interface LiveHouseSimulator3DProps {
   house: HouseConfig;
   selectedRoomId: string | null;
+  selectedFurnitureId?: string | null;
   onSelectRoom: (roomId: string) => void;
+  onSelectFurniture?: (furnitureId: string) => void;
   isFloorPlanView: boolean;
   onToggleFloorPlan: () => void;
 }
@@ -43,19 +45,31 @@ const FLOOR_COLORS: Record<FloorMaterial, string> = {
 const FurnitureItem: React.FC<{
   furniture: FurnitureConfig;
   room: RoomConfig;
-}> = ({ furniture, room }) => {
+  isSelected?: boolean;
+  onSelect?: () => void;
+}> = ({ furniture, room, isSelected, onSelect }) => {
   const worldX = room.x + furniture.x;
   const worldZ = room.z + furniture.z;
   const rotRad = (furniture.rotation * Math.PI) / 180;
 
+  const handleClick = (e: any) => {
+    e.stopPropagation();
+    if (onSelect) onSelect();
+  };
+
   switch (furniture.item) {
     case 'sofa':
       return (
-        <group position={[worldX, 0, worldZ]} rotation={[0, rotRad, 0]}>
+        <group position={[worldX, 0, worldZ]} rotation={[0, rotRad, 0]} onClick={handleClick}>
           {/* Main Cushion Base */}
           <mesh position={[0, 0.22, 0]} castShadow receiveShadow>
             <boxGeometry args={[1.6, 0.35, 0.8]} />
-            <meshStandardMaterial color="#334155" roughness={0.7} />
+            <meshStandardMaterial
+              color="#334155"
+              roughness={0.7}
+              emissive={isSelected ? '#38BDF8' : '#000000'}
+              emissiveIntensity={isSelected ? 0.3 : 0}
+            />
           </mesh>
           {/* Backrest */}
           <mesh position={[0, 0.5, -0.32]} castShadow>
@@ -76,11 +90,16 @@ const FurnitureItem: React.FC<{
 
     case 'bed':
       return (
-        <group position={[worldX, 0, worldZ]} rotation={[0, rotRad, 0]}>
+        <group position={[worldX, 0, worldZ]} rotation={[0, rotRad, 0]} onClick={handleClick}>
           {/* Bed Frame */}
           <mesh position={[0, 0.15, 0]} castShadow receiveShadow>
             <boxGeometry args={[1.7, 0.3, 2.0]} />
-            <meshStandardMaterial color="#78350F" roughness={0.4} />
+            <meshStandardMaterial
+              color="#78350F"
+              roughness={0.4}
+              emissive={isSelected ? '#38BDF8' : '#000000'}
+              emissiveIntensity={isSelected ? 0.3 : 0}
+            />
           </mesh>
           {/* Mattress */}
           <mesh position={[0, 0.35, 0]} castShadow>
@@ -101,10 +120,16 @@ const FurnitureItem: React.FC<{
 
     case 'kitchen_counter':
       return (
-        <group position={[worldX, 0, worldZ]} rotation={[0, rotRad, 0]}>
+        <group position={[worldX, 0, worldZ]} rotation={[0, rotRad, 0]} onClick={handleClick}>
           <mesh position={[0, 0.45, 0]} castShadow receiveShadow>
             <boxGeometry args={[1.8, 0.9, 0.7]} />
-            <meshStandardMaterial color="#0F172A" roughness={0.3} metalness={0.4} />
+            <meshStandardMaterial
+              color="#0F172A"
+              roughness={0.3}
+              metalness={0.4}
+              emissive={isSelected ? '#38BDF8' : '#000000'}
+              emissiveIntensity={isSelected ? 0.3 : 0}
+            />
           </mesh>
           {/* Countertop */}
           <mesh position={[0, 0.92, 0]} castShadow>
@@ -116,11 +141,16 @@ const FurnitureItem: React.FC<{
 
     case 'table':
       return (
-        <group position={[worldX, 0, worldZ]} rotation={[0, rotRad, 0]}>
+        <group position={[worldX, 0, worldZ]} rotation={[0, rotRad, 0]} onClick={handleClick}>
           {/* Table Top */}
           <mesh position={[0, 0.72, 0]} castShadow receiveShadow>
             <boxGeometry args={[1.4, 0.06, 0.9]} />
-            <meshStandardMaterial color="#B45309" roughness={0.4} />
+            <meshStandardMaterial
+              color="#B45309"
+              roughness={0.4}
+              emissive={isSelected ? '#38BDF8' : '#000000'}
+              emissiveIntensity={isSelected ? 0.3 : 0}
+            />
           </mesh>
           {/* 4 Legs */}
           {[-0.6, 0.6].map((lx) =>
@@ -136,7 +166,7 @@ const FurnitureItem: React.FC<{
 
     case 'lamp':
       return (
-        <group position={[worldX, 0, worldZ]}>
+        <group position={[worldX, 0, worldZ]} onClick={handleClick}>
           {/* Base & Pole */}
           <mesh position={[0, 0.03, 0]}>
             <cylinderGeometry args={[0.2, 0.2, 0.06, 16]} />
@@ -155,15 +185,158 @@ const FurnitureItem: React.FC<{
         </group>
       );
 
-    default:
-      // Generic piece
+    case 'chair':
       return (
-        <mesh position={[worldX, 0.35, worldZ]} castShadow>
+        <group position={[worldX, 0, worldZ]} rotation={[0, rotRad, 0]} onClick={handleClick}>
+          <mesh position={[0, 0.42, 0]} castShadow>
+            <boxGeometry args={[0.45, 0.05, 0.45]} />
+            <meshStandardMaterial color="#B45309" />
+          </mesh>
+          <mesh position={[0, 0.72, -0.2]} castShadow>
+            <boxGeometry args={[0.45, 0.55, 0.05]} />
+            <meshStandardMaterial color="#78350F" />
+          </mesh>
+        </group>
+      );
+
+    case 'wardrobe':
+      return (
+        <group position={[worldX, 0, worldZ]} rotation={[0, rotRad, 0]} onClick={handleClick}>
+          <mesh position={[0, 1.0, 0]} castShadow receiveShadow>
+            <boxGeometry args={[1.0, 2.0, 0.6]} />
+            <meshStandardMaterial color="#334155" roughness={0.5} />
+          </mesh>
+        </group>
+      );
+
+    case 'desk':
+      return (
+        <group position={[worldX, 0, worldZ]} rotation={[0, rotRad, 0]} onClick={handleClick}>
+          <mesh position={[0, 0.73, 0]} castShadow>
+            <boxGeometry args={[1.3, 0.06, 0.65]} />
+            <meshStandardMaterial color="#1E293B" metalness={0.3} />
+          </mesh>
+        </group>
+      );
+
+    default:
+      return (
+        <mesh position={[worldX, 0.35, worldZ]} castShadow onClick={handleClick}>
           <boxGeometry args={[0.6, 0.7, 0.6]} />
           <meshStandardMaterial color="#64748B" />
         </mesh>
       );
   }
+};
+
+// 3D Door Component
+const Door3D: React.FC<{ door: DoorConfig; room: RoomConfig }> = ({ door, room }) => {
+  let pos: [number, number, number] = [0, 1.0, 0];
+  let rotY = 0;
+
+  switch (door.wall) {
+    case 'south':
+      pos = [room.x + Math.min(door.offset, room.width - 0.5), 1.0, room.z + room.depth];
+      rotY = 0;
+      break;
+    case 'north':
+      pos = [room.x + Math.min(door.offset, room.width - 0.5), 1.0, room.z];
+      rotY = 0;
+      break;
+    case 'east':
+      pos = [room.x + room.width, 1.0, room.z + Math.min(door.offset, room.depth - 0.5)];
+      rotY = Math.PI / 2;
+      break;
+    case 'west':
+      pos = [room.x, 1.0, room.z + Math.min(door.offset, room.depth - 0.5)];
+      rotY = Math.PI / 2;
+      break;
+  }
+
+  return (
+    <group position={pos} rotation={[0, rotY, 0]}>
+      {/* Door Frame */}
+      <mesh position={[0, 0, 0]} castShadow>
+        <boxGeometry args={[door.width, 2.0, 0.06]} />
+        <meshStandardMaterial color="#78350F" roughness={0.4} />
+      </mesh>
+      {/* Metallic Handle */}
+      <mesh position={[door.width * 0.35, -0.05, 0.05]}>
+        <sphereGeometry args={[0.04, 12, 12]} />
+        <meshStandardMaterial color="#FBBF24" metalness={0.9} roughness={0.1} />
+      </mesh>
+    </group>
+  );
+};
+
+// 3D Window Component
+const Window3D: React.FC<{ windowConfig: WindowConfig; room: RoomConfig }> = ({
+  windowConfig,
+  room,
+}) => {
+  let pos: [number, number, number] = [0, 1.4, 0];
+  let rotY = 0;
+
+  switch (windowConfig.wall) {
+    case 'south':
+      pos = [room.x + Math.min(windowConfig.offset, room.width - 0.5), 1.4, room.z + room.depth];
+      rotY = 0;
+      break;
+    case 'north':
+      pos = [room.x + Math.min(windowConfig.offset, room.width - 0.5), 1.4, room.z];
+      rotY = 0;
+      break;
+    case 'east':
+      pos = [room.x + room.width, 1.4, room.z + Math.min(windowConfig.offset, room.depth - 0.5)];
+      rotY = Math.PI / 2;
+      break;
+    case 'west':
+      pos = [room.x, 1.4, room.z + Math.min(windowConfig.offset, room.depth - 0.5)];
+      rotY = Math.PI / 2;
+      break;
+  }
+
+  return (
+    <group position={pos} rotation={[0, rotY, 0]}>
+      {/* Glass Pane */}
+      <mesh position={[0, 0, 0]}>
+        <boxGeometry args={[windowConfig.width, 1.1, 0.04]} />
+        <meshStandardMaterial
+          color="#38BDF8"
+          roughness={0.1}
+          metalness={0.8}
+          transparent
+          opacity={0.65}
+        />
+      </mesh>
+      {/* Outer Border Frame */}
+      <lineSegments>
+        <edgesGeometry args={[new THREE.BoxGeometry(windowConfig.width, 1.1, 0.04)]} />
+        <lineBasicMaterial color="#E2E8F0" linewidth={2} />
+      </lineSegments>
+    </group>
+  );
+};
+
+// Rooftop Solar Panel Array Component
+const SolarPanelArray: React.FC<{ house: HouseConfig }> = ({ house }) => {
+  return (
+    <group position={[house.width / 2, 2.7, house.depth / 2]}>
+      <mesh rotation={[-0.2, 0, 0]} position={[0, 0, 0]} castShadow>
+        <boxGeometry args={[Math.min(house.width * 0.7, 6), 0.1, 2.5]} />
+        <meshStandardMaterial
+          color="#1E3A8A"
+          roughness={0.2}
+          metalness={0.7}
+          emissive="#3B82F6"
+          emissiveIntensity={0.2}
+        />
+      </mesh>
+      <Text position={[0, 0.25, 0]} fontSize={0.3} color="#93C5FD">
+        Solar Photovoltaic Grid
+      </Text>
+    </group>
+  );
 };
 
 // 3D Room Renderer (Floor, Cutaway Perimeter Walls, Label)
@@ -172,7 +345,8 @@ const Room3D: React.FC<{
   isSelected: boolean;
   onSelect: () => void;
   isFloorPlan: boolean;
-}> = ({ room, isSelected, onSelect, isFloorPlan }) => {
+  isSmartLit?: boolean;
+}> = ({ room, isSelected, onSelect, isFloorPlan, isSmartLit }) => {
   const wallHeight = isFloorPlan ? 0.3 : 2.4;
   const wallThick = 0.15;
   const halfW = room.width / 2;
@@ -203,6 +377,11 @@ const Room3D: React.FC<{
           emissiveIntensity={isSelected ? 0.25 : 0}
         />
       </mesh>
+
+      {/* Smart Ambient Ceiling Lighting */}
+      {isSmartLit && (
+        <pointLight position={[0, 1.8, 0]} intensity={1.4} color="#FDE047" distance={4.5} />
+      )}
 
       {/* Selection Border Line */}
       {isSelected && (
@@ -271,7 +450,9 @@ const Room3D: React.FC<{
 export const LiveHouseSimulator3D: React.FC<LiveHouseSimulator3DProps> = ({
   house,
   selectedRoomId,
+  selectedFurnitureId,
   onSelectRoom,
+  onSelectFurniture,
   isFloorPlanView,
   onToggleFloorPlan,
 }) => {
@@ -410,15 +591,64 @@ export const LiveHouseSimulator3D: React.FC<LiveHouseSimulator3DProps> = ({
             isSelected={selectedRoomId === room.id}
             onSelect={() => onSelectRoom(room.id)}
             isFloorPlan={isFloorPlanView}
+            isSmartLit={Boolean(house.smartFeatures?.smartLighting?.[room.id])}
           />
         ))}
+
+        {/* Doors */}
+        {house.doors.map((door) => {
+          const room = house.rooms.find((r) => r.id === door.roomId);
+          if (!room) return null;
+          return <Door3D key={door.id} door={door} room={room} />;
+        })}
+
+        {/* Windows */}
+        {house.windows.map((win) => {
+          const room = house.rooms.find((r) => r.id === win.roomId);
+          if (!room) return null;
+          return <Window3D key={win.id} windowConfig={win} room={room} />;
+        })}
 
         {/* Furniture Items */}
         {house.furniture.map((furn) => {
           const room = house.rooms.find((r) => r.id === furn.roomId);
           if (!room) return null;
-          return <FurnitureItem key={furn.id} furniture={furn} room={room} />;
+          return (
+            <FurnitureItem
+              key={furn.id}
+              furniture={furn}
+              room={room}
+              isSelected={selectedFurnitureId === furn.id}
+              onSelect={() => onSelectFurniture && onSelectFurniture(furn.id)}
+            />
+          );
         })}
+
+        {/* Rooftop Solar Panels */}
+        {house.smartFeatures?.solarPower && <SolarPanelArray house={house} />}
+
+        {/* Second Floor Upper Story Visualization */}
+        {house.floors >= 2 && (
+          <group position={[houseCenterX, 2.5, houseCenterZ]}>
+            <mesh position={[0, 0.05, 0]}>
+              <boxGeometry args={[house.width * 0.95, 0.1, house.depth * 0.95]} />
+              <meshStandardMaterial
+                color="#334155"
+                opacity={0.65}
+                transparent
+                roughness={0.3}
+              />
+            </mesh>
+            <Text
+              position={[0, 0.3, 0]}
+              rotation={[-Math.PI / 2, 0, 0]}
+              fontSize={0.35}
+              color="#A78BFA"
+            >
+              Level 2 - Upper Story
+            </Text>
+          </group>
+        )}
 
         {/* Orbit Camera Controls */}
         <OrbitControls

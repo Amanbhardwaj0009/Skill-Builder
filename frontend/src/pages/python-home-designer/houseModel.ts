@@ -48,6 +48,11 @@ export interface FurnitureConfig {
   rotation: number; // degrees
 }
 
+export interface SmartFeaturesConfig {
+  solarPower: boolean;
+  smartLighting: Record<string, boolean>; // roomId -> isSmartLit
+}
+
 export interface HouseConfig {
   width: number;
   depth: number;
@@ -57,6 +62,7 @@ export interface HouseConfig {
   doors: DoorConfig[];
   windows: WindowConfig[];
   furniture: FurnitureConfig[];
+  smartFeatures?: SmartFeaturesConfig;
 }
 
 export interface ValidationIssue {
@@ -175,6 +181,10 @@ export const DEFAULT_HOUSE: HouseConfig = {
       rotation: 0,
     },
   ],
+  smartFeatures: {
+    solarPower: false,
+    smartLighting: {},
+  },
 };
 
 /**
@@ -259,3 +269,91 @@ export function validateHouse(house: HouseConfig): ValidationIssue[] {
 
   return issues;
 }
+
+/**
+ * Itemized unit prices for simulated construction budget (Mission 7)
+ */
+export const BUDGET_PRICING = {
+  sqMeterConstruction: 55, // $55 per m² of interior floor area
+  floorMaterials: {
+    oak: 35,
+    marble: 65,
+    tile: 25,
+    concrete: 15,
+    carpet: 20,
+  } as Record<FloorMaterial, number>,
+  furniture: {
+    sofa: 450,
+    bed: 550,
+    table: 250,
+    chair: 90,
+    kitchen_counter: 600,
+    wardrobe: 380,
+    desk: 220,
+    lamp: 75,
+  } as Record<string, number>,
+  doors: 180,
+  windows: 150,
+  solarArray: 1200,
+  smartLightPerRoom: 140,
+  secondFloorBase: 1500,
+};
+
+export interface HouseBudgetReport {
+  constructionCost: number;
+  materialsCost: number;
+  openingsCost: number;
+  furnitureCost: number;
+  smartTechCost: number;
+  totalCost: number;
+}
+
+/**
+ * Calculate the simulated estimated budget cost of a house configuration
+ */
+export function calculateHouseBudget(house: HouseConfig): HouseBudgetReport {
+  let constructionCost = 0;
+  let materialsCost = 0;
+
+  for (const r of house.rooms) {
+    const area = r.width * r.depth;
+    constructionCost += area * BUDGET_PRICING.sqMeterConstruction;
+    const matPrice = BUDGET_PRICING.floorMaterials[r.floorMaterial] || BUDGET_PRICING.floorMaterials.oak;
+    materialsCost += area * matPrice;
+  }
+
+  if (house.floors >= 2) {
+    constructionCost += BUDGET_PRICING.secondFloorBase * (house.floors - 1);
+  }
+
+  const openingsCost =
+    house.doors.length * BUDGET_PRICING.doors + house.windows.length * BUDGET_PRICING.windows;
+
+  let furnitureCost = 0;
+  for (const f of house.furniture) {
+    furnitureCost += BUDGET_PRICING.furniture[f.item] || 200;
+  }
+
+  let smartTechCost = 0;
+  if (house.smartFeatures?.solarPower) {
+    smartTechCost += BUDGET_PRICING.solarArray;
+  }
+  if (house.smartFeatures?.smartLighting) {
+    const activeRooms = Object.values(house.smartFeatures.smartLighting).filter(Boolean).length;
+    smartTechCost += activeRooms * BUDGET_PRICING.smartLightPerRoom;
+  }
+
+  const totalCost = Math.round(
+    constructionCost + materialsCost + openingsCost + furnitureCost + smartTechCost
+  );
+
+  return {
+    constructionCost: Math.round(constructionCost),
+    materialsCost: Math.round(materialsCost),
+    openingsCost: Math.round(openingsCost),
+    furnitureCost: Math.round(furnitureCost),
+    smartTechCost: Math.round(smartTechCost),
+    totalCost,
+  };
+}
+

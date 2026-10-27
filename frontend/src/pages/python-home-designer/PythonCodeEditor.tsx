@@ -1,16 +1,19 @@
 import React, { useState } from 'react';
 import Editor from '@monaco-editor/react';
+import { MISSIONS_DATA } from './missionsData';
 import {
   Play,
   RotateCcw,
   Terminal,
   Code2,
-  FileCode,
   Sparkles,
   AlertTriangle,
-  CheckCircle2,
   ChevronDown,
   ChevronUp,
+  FileCode,
+  Lightbulb,
+  PlusCircle,
+  HelpCircle,
 } from 'lucide-react';
 
 interface PythonCodeEditorProps {
@@ -23,69 +26,8 @@ interface PythonCodeEditorProps {
   errors: string[];
   warnings: string[];
   executionTimeMs?: number;
+  currentMissionId?: number;
 }
-
-export const STARTER_TEMPLATES: Record<string, { label: string; code: string }> = {
-  starter: {
-    label: 'Mission 01 Starter (3 Rooms)',
-    code: `# SkillQuest Python Home Designer
-from skillquest_house import House
-
-# 1. Initialize home boundaries (width=12m, depth=10m)
-home = House(width=12, depth=10, floors=1)
-
-# 2. Add individual rooms (name, x, z, width, depth)
-home.add_room("living_room", x=0, z=0, width=6, depth=5)
-home.add_room("kitchen", x=6, z=0, width=5, depth=5)
-home.add_room("bedroom", x=0, z=5, width=5, depth=4.5)
-
-# 3. Add doorways and windows
-home.add_door("living_room", wall="south", width=1.0)
-home.add_window("living_room", wall="south", width=1.5)
-home.add_window("bedroom", wall="west", width=1.5)
-
-# 4. Configure interior aesthetics
-home.set_wall_color("living_room", "#E8DCC8")
-home.set_floor_material("living_room", "oak")
-home.set_floor_material("kitchen", "tile")
-home.set_floor_material("bedroom", "carpet")
-
-# 5. Place starter furniture
-home.add_furniture("sofa", "living_room", x=2.5, z=2.5)
-home.add_furniture("table", "living_room", x=2.5, z=1.2)
-home.add_furniture("bed", "bedroom", x=2.2, z=2.0)
-home.add_furniture("kitchen_counter", "kitchen", x=2.5, z=0.8)
-
-print("Home layout generated successfully!")
-`,
-  },
-  modern_loop: {
-    label: 'Loop-Generated Floor Plan (4 Rooms)',
-    code: `# Algorithmic Room Generation via Python Loops
-from skillquest_house import House
-
-home = House(width=14, depth=12)
-
-# Define room specs: (name, x, z, width, depth, material)
-room_specs = [
-    ("grand_living", 0, 0, 7, 6, "oak"),
-    ("gourmet_kitchen", 7, 0, 6, 6, "marble"),
-    ("master_suite", 0, 6, 6, 5, "carpet"),
-    ("study_lab", 7, 6, 6, 5, "concrete")
-]
-
-for name, rx, rz, rw, rd, mat in room_specs:
-    home.add_room(name, x=rx, z=rz, width=rw, depth=rd)
-    home.set_floor_material(name, mat)
-    print(f"Constructed {name}: area = {rw * rd}m²")
-
-home.add_door("grand_living", wall="south")
-home.add_window("grand_living", wall="west")
-home.add_window("master_suite", wall="south")
-home.add_furniture("sofa", "grand_living", x=3.0, z=3.0)
-`,
-  },
-};
 
 export const PythonCodeEditor: React.FC<PythonCodeEditorProps> = ({
   code,
@@ -97,13 +39,41 @@ export const PythonCodeEditor: React.FC<PythonCodeEditorProps> = ({
   errors,
   warnings,
   executionTimeMs,
+  currentMissionId = 1,
 }) => {
   const [consoleOpen, setConsoleOpen] = useState(true);
+  const [errorExplanation, setErrorExplanation] = useState<string | null>(null);
+
+  const handleInsertSnippet = (snippet: string) => {
+    onChangeCode(code + '\n' + snippet);
+  };
+
+  const handleExplainError = () => {
+    if (errors.length === 0) return;
+    const firstErr = errors[0];
+    if (firstErr.includes('boundary') || firstErr.includes('extends beyond')) {
+      setErrorExplanation(
+        'Boundary Error: Your room coordinates (x, z) plus its width or depth exceed the lot dimensions (House width, depth). Either enlarge House(width, depth) or reduce room dimensions/positions.'
+      );
+    } else if (firstErr.includes('non-existent room')) {
+      setErrorExplanation(
+        'Invalid Room Reference: The door or window refers to a room name that has not been created with add_room() yet. Check spelling of room names.'
+      );
+    } else if (firstErr.includes('Syntax') || firstErr.includes('Exception')) {
+      setErrorExplanation(
+        'Python Syntax Error: Check for unclosed quotation marks, missing commas between arguments, or misspelled function names (e.g. add_room, add_door, add_window).'
+      );
+    } else {
+      setErrorExplanation(
+        `Design issue: ${firstErr}. Check the mission requirements and hint tabs on the right panel.`
+      );
+    }
+  };
 
   return (
     <div className="flex flex-col h-[540px] md:h-[620px] w-full md:w-96 rounded-3xl border border-purple-500/25 bg-[#0C1222]/90 backdrop-blur-xl overflow-hidden shadow-2xl">
       {/* Top Controls Toolbar */}
-      <div className="flex items-center justify-between border-b border-gray-800 p-3 bg-[#090D1A]">
+      <div className="flex items-center justify-between border-b border-gray-800 p-2.5 bg-[#090D1A]">
         <div className="flex items-center gap-2">
           <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-600/20 text-purple-400 border border-purple-500/30">
             <Code2 className="h-4 w-4" />
@@ -111,20 +81,51 @@ export const PythonCodeEditor: React.FC<PythonCodeEditorProps> = ({
           <span className="text-xs font-bold text-white">designer.py</span>
         </div>
 
-        {/* Templates Selector */}
+        {/* Templates & Quick Actions */}
         <div className="flex items-center gap-1.5">
           <select
             onChange={(e) => {
-              const tmpl = STARTER_TEMPLATES[e.target.value];
-              if (tmpl) onChangeCode(tmpl.code);
+              const missionId = Number(e.target.value);
+              const targetMission = MISSIONS_DATA.find((m) => m.id === missionId);
+              if (targetMission) onChangeCode(targetMission.starterCode);
             }}
+            value={currentMissionId}
             className="rounded-lg border border-gray-800 bg-[#121B2D] px-2 py-1 text-[10px] font-semibold text-gray-300 focus:outline-none"
+            title="Load starter code for mission"
           >
-            {Object.entries(STARTER_TEMPLATES).map(([key, item]) => (
-              <option key={key} value={key}>
-                {item.label}
+            {MISSIONS_DATA.map((m) => (
+              <option key={m.id} value={m.id}>
+                Mission {m.id} Template
               </option>
             ))}
+          </select>
+
+          {/* Quick Code Snippet Inserter */}
+          <select
+            onChange={(e) => {
+              if (e.target.value) {
+                handleInsertSnippet(e.target.value);
+                e.target.value = '';
+              }
+            }}
+            defaultValue=""
+            className="rounded-lg border border-gray-800 bg-[#121B2D] px-2 py-1 text-[10px] font-semibold text-cyan-300 focus:outline-none"
+            title="Quick insert Python snippet"
+          >
+            <option value="" disabled>
+              + Snippet
+            </option>
+            <option value='home.add_door("living_room", wall="south", position=2.0, width=1.0)'>
+              Door (+Door)
+            </option>
+            <option value='home.add_window("living_room", wall="north", position=1.5, width=1.5)'>
+              Window (+Window)
+            </option>
+            <option value='home.add_furniture("sofa", "living_room", x=2.5, z=2.5)'>
+              Furniture (+Sofa)
+            </option>
+            <option value='home.enable_solar_power(True)'>Eco (+Solar)</option>
+            <option value='home.set_smart_lighting("living_room", True)'>IoT (+Smart Light)</option>
           </select>
 
           <button
@@ -144,7 +145,10 @@ export const PythonCodeEditor: React.FC<PythonCodeEditorProps> = ({
           language="python"
           theme="vs-dark"
           value={code}
-          onChange={(val) => onChangeCode(val || '')}
+          onChange={(val) => {
+            onChangeCode(val || '');
+            if (errorExplanation) setErrorExplanation(null);
+          }}
           options={{
             minimap: { enabled: false },
             fontSize: 12.5,
@@ -173,6 +177,17 @@ export const PythonCodeEditor: React.FC<PythonCodeEditorProps> = ({
           <span>{isRunning ? 'Executing Python...' : 'Run Python Code'}</span>
         </button>
 
+        {errors.length > 0 && (
+          <button
+            onClick={handleExplainError}
+            className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-2.5 py-2.5 text-xs font-bold text-amber-300 hover:bg-amber-500/20 transition flex items-center gap-1"
+            title="Explain Error"
+          >
+            <HelpCircle className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Explain</span>
+          </button>
+        )}
+
         <button
           onClick={() => setConsoleOpen(!consoleOpen)}
           className={`rounded-xl border p-2.5 text-xs font-bold transition flex items-center gap-1.5 ${
@@ -189,13 +204,19 @@ export const PythonCodeEditor: React.FC<PythonCodeEditorProps> = ({
 
       {/* Terminal Output Console Drawer */}
       {consoleOpen && (
-        <div className="h-32 border-t border-gray-800 bg-[#070A14] p-3 overflow-y-auto font-mono text-[11px] space-y-1.5 select-text">
+        <div className="h-32 border-t border-gray-800 bg-[#070A14] p-3 overflow-y-auto font-mono text-[11px] space-y-1.5 select-text custom-scrollbar">
           <div className="flex items-center justify-between text-[10px] text-gray-500 pb-1 border-b border-gray-900">
-            <span>Terminal Output</span>
+            <span>Interactive Terminal</span>
             {executionTimeMs !== undefined && (
               <span className="text-cyan-400 font-bold">{executionTimeMs}ms execution</span>
             )}
           </div>
+
+          {errorExplanation && (
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-2 text-[11px] text-amber-200 font-sans">
+              <strong>Mentor Explanation:</strong> {errorExplanation}
+            </div>
+          )}
 
           {errors.length === 0 && warnings.length === 0 && output.length === 0 && (
             <p className="text-gray-600 italic">Click 'Run Python Code' to compile and simulate.</p>

@@ -12,6 +12,8 @@ export interface PythonExecutionResult {
 // In-browser Python House Class definition for Pyodide
 const PYTHON_HOUSE_MODULE = `
 import json
+import sys
+import types
 
 class House:
     def __init__(self, width=12, depth=10, floors=1):
@@ -23,6 +25,10 @@ class House:
         self.doors = []
         self.windows = []
         self.furniture = []
+        self.smart_features = {
+            "solarPower": False,
+            "smartLighting": {}
+        }
         
     def add_room(self, name, x, z, width, depth):
         room_id = name.lower().replace(" ", "_")
@@ -102,6 +108,28 @@ class House:
         
     def set_roof_style(self, style):
         self.roof_style = style.lower()
+
+    def enable_solar_power(self, enabled=True):
+        self.smart_features["solarPower"] = bool(enabled)
+
+    def set_smart_lighting(self, room, enabled=True):
+        room_id = room.lower().replace(" ", "_")
+        self.smart_features["smartLighting"][room_id] = bool(enabled)
+
+    def calculate_budget(self):
+        cost = sum(r["width"] * r["depth"] * 55 for r in self.rooms)
+        mat_prices = {"oak": 35, "marble": 65, "tile": 25, "concrete": 15, "carpet": 20}
+        cost += sum(r["width"] * r["depth"] * mat_prices.get(r["floorMaterial"], 35) for r in self.rooms)
+        if self.floors >= 2:
+            cost += 1500 * (self.floors - 1)
+        cost += len(self.doors) * 180 + len(self.windows) * 150
+        furn_prices = {"sofa": 450, "bed": 550, "table": 250, "chair": 90, "kitchen_counter": 600, "wardrobe": 380, "desk": 220, "lamp": 75}
+        cost += sum(furn_prices.get(f["item"], 200) for f in self.furniture)
+        if self.smart_features.get("solarPower"):
+            cost += 1200
+        active_lights = sum(1 for v in self.smart_features.get("smartLighting", {}).values() if v)
+        cost += active_lights * 140
+        return round(cost)
         
     def get_room_area(self, room):
         room_id = room.lower().replace(" ", "_")
@@ -119,8 +147,14 @@ class House:
             "rooms": self.rooms,
             "doors": self.doors,
             "windows": self.windows,
-            "furniture": self.furniture
+            "furniture": self.furniture,
+            "smartFeatures": self.smart_features
         })
+
+# Register module for import statements
+sq_module = types.ModuleType("skillquest_house")
+sq_module.House = House
+sys.modules["skillquest_house"] = sq_module
 `;
 
 let pyodideInstance: any = null;
@@ -280,6 +314,10 @@ function runSimulatedPython(
     doors: [],
     windows: [],
     furniture: [],
+    smartFeatures: {
+      solarPower: false,
+      smartLighting: {},
+    },
   };
 
   const lines = code.split('\n');
@@ -412,6 +450,55 @@ function runSimulatedPython(
         rotation: rot,
       });
       continue;
+    }
+
+    // Handle set_roof_style
+    if (rawLine.includes('.set_roof_style(')) {
+      const args = extractArgs(rawLine, lines, i);
+      const style = parseArgString(args[0]).toLowerCase();
+      if (style === 'pitched' || style === 'flat' || style === 'modern') {
+        house.roofStyle = style as any;
+      }
+      continue;
+    }
+
+    // Handle enable_solar_power
+    if (rawLine.includes('.enable_solar_power(')) {
+      house.smartFeatures!.solarPower = !rawLine.toLowerCase().includes('false');
+      continue;
+    }
+
+    // Handle set_smart_lighting
+    if (rawLine.includes('.set_smart_lighting(')) {
+      const args = extractArgs(rawLine, lines, i);
+      const room = parseArgString(args[0]) || '';
+      const rId = room.toLowerCase().replace(/\s+/g, '_');
+      const enabled = !args[1] || !args[1].toLowerCase().includes('false');
+      house.smartFeatures!.smartLighting[rId] = enabled;
+      continue;
+    }
+  }
+
+  // Support list of room tuples parsed for for-loops
+  if (house.rooms.length === 0 && code.includes('for ') && code.includes('in ')) {
+    const tupleRegex = /\(\s*["']([^"']+)["']\s*,\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)/g;
+    let match;
+    while ((match = tupleRegex.exec(code)) !== null) {
+      const name = match[1];
+      const x = parseFloat(match[2]);
+      const z = parseFloat(match[3]);
+      const width = parseFloat(match[4]);
+      const depth = parseFloat(match[5]);
+      house.rooms.push({
+        id: name.toLowerCase().replace(/\s+/g, '_'),
+        name: name.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+        x,
+        z,
+        width,
+        depth,
+        wallColor: '#E8DCC8',
+        floorMaterial: 'oak',
+      });
     }
   }
 

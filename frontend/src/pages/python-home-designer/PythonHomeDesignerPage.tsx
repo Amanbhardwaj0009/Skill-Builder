@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import confetti from 'canvas-confetti';
 import { useAuth } from '../../context/AuthContext';
-import { HouseConfig, DEFAULT_HOUSE, validateHouse } from './houseModel';
+import { HouseConfig, RoomConfig, FurnitureConfig, DEFAULT_HOUSE } from './houseModel';
 import { executePythonCode, initPyodide } from './pythonRuntime';
-import { PythonCodeEditor, STARTER_TEMPLATES } from './PythonCodeEditor';
+import { PythonCodeEditor } from './PythonCodeEditor';
 import { LiveHouseSimulator3D } from './LiveHouseSimulator3D';
 import { BuildingInspectorPanel } from './BuildingInspectorPanel';
+import { MISSIONS_DATA } from './missionsData';
 import {
   ArrowLeft,
   Coins,
@@ -18,8 +19,8 @@ import {
   Building2,
   Award,
   Layers,
-  CheckCircle2,
-  Maximize2,
+  FilePlus,
+  FolderOpen,
 } from 'lucide-react';
 
 export const PythonHomeDesignerPage: React.FC = () => {
@@ -28,20 +29,25 @@ export const PythonHomeDesignerPage: React.FC = () => {
   // Project and Code State
   const [projectName, setProjectName] = useState<string>('My Solar Villa');
   const [isEditingName, setIsEditingName] = useState(false);
-  const [code, setCode] = useState<string>(STARTER_TEMPLATES.starter.code);
+  const [currentMissionId, setCurrentMissionId] = useState<number>(1);
+  const [code, setCode] = useState<string>(MISSIONS_DATA[0].starterCode);
   const [house, setHouse] = useState<HouseConfig>(DEFAULT_HOUSE);
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>('living_room');
+  const [selectedFurnitureId, setSelectedFurnitureId] = useState<string | null>(null);
   const [isFloorPlanView, setIsFloorPlanView] = useState<boolean>(false);
 
   // Execution & Terminal State
   const [isRunning, setIsRunning] = useState<boolean>(false);
-  const [output, setOutput] = useState<string[]>(['Python 3.11 Environment Initialized.', 'skillquest_house API loaded.']);
+  const [output, setOutput] = useState<string[]>([
+    'Python 3.11 Runtime Initialized.',
+    'skillquest_house API imported and ready.',
+  ]);
   const [errors, setErrors] = useState<string[]>([]);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [executionTimeMs, setExecutionTimeMs] = useState<number | undefined>(undefined);
 
   // Mission & Rewards State
-  const [missionCompleted, setMissionCompleted] = useState<boolean>(false);
+  const [completedMissionIds, setCompletedMissionIds] = useState<number[]>([]);
   const [worldCredits, setWorldCredits] = useState<number>(250);
   const [saveToast, setSaveToast] = useState<boolean>(false);
 
@@ -60,6 +66,13 @@ export const PythonHomeDesignerPage: React.FC = () => {
       } catch (e) {}
     }
 
+    const savedMissions = localStorage.getItem('skillquest_home_completed_missions');
+    if (savedMissions) {
+      try {
+        setCompletedMissionIds(JSON.parse(savedMissions));
+      } catch (e) {}
+    }
+
     const savedProject = localStorage.getItem('skillquest_home_project');
     if (savedProject) {
       try {
@@ -67,7 +80,7 @@ export const PythonHomeDesignerPage: React.FC = () => {
         if (parsed.projectName) setProjectName(parsed.projectName);
         if (parsed.code) setCode(parsed.code);
         if (parsed.house) setHouse(parsed.house);
-        if (parsed.missionCompleted) setMissionCompleted(parsed.missionCompleted);
+        if (parsed.currentMissionId) setCurrentMissionId(parsed.currentMissionId);
       } catch (e) {}
     }
   }, []);
@@ -80,12 +93,27 @@ export const PythonHomeDesignerPage: React.FC = () => {
         projectName,
         code,
         house,
-        missionCompleted,
+        currentMissionId,
         updatedAt: new Date().toISOString(),
       })
     );
     setSaveToast(true);
     setTimeout(() => setSaveToast(false), 2500);
+  };
+
+  // New Project
+  const handleNewProject = () => {
+    if (window.confirm('Start a new home design project? Any unsaved changes will be reset.')) {
+      setProjectName('Modern Eco Residence');
+      const mission = MISSIONS_DATA.find((m) => m.id === currentMissionId) || MISSIONS_DATA[0];
+      setCode(mission.starterCode);
+      setHouse(DEFAULT_HOUSE);
+      setSelectedRoomId('living_room');
+      setSelectedFurnitureId(null);
+      setOutput(['New project created.', 'Ready to execute Python design.']);
+      setErrors([]);
+      setWarnings([]);
+    }
   };
 
   // Run Python Code
@@ -115,13 +143,34 @@ export const PythonHomeDesignerPage: React.FC = () => {
     }
   };
 
-  // Claim Mission Reward (Idempotent)
-  const handleClaimReward = () => {
-    if (missionCompleted) return;
+  // Switch Mission
+  const handleSelectMission = (missionId: number) => {
+    setCurrentMissionId(missionId);
+    const targetMission = MISSIONS_DATA.find((m) => m.id === missionId);
+    if (targetMission) {
+      // Offer user to load mission starter code
+      const wantsTemplate = window.confirm(
+        `Load starter template for Mission ${missionId}: ${targetMission.title}?`
+      );
+      if (wantsTemplate) {
+        setCode(targetMission.starterCode);
+      }
+    }
+  };
 
-    const newCredits = worldCredits + 150;
+  // Claim Mission Reward (Idempotent per Mission)
+  const handleClaimMissionReward = (missionId: number) => {
+    if (completedMissionIds.includes(missionId)) return;
+
+    const mission = MISSIONS_DATA.find((m) => m.id === missionId);
+    if (!mission) return;
+
+    const newCompleted = [...completedMissionIds, missionId];
+    setCompletedMissionIds(newCompleted);
+    localStorage.setItem('skillquest_home_completed_missions', JSON.stringify(newCompleted));
+
+    const newCredits = worldCredits + mission.creditsReward;
     setWorldCredits(newCredits);
-    setMissionCompleted(true);
 
     // Save to world state
     const savedWorld = localStorage.getItem('skillquest_world_state');
@@ -131,17 +180,33 @@ export const PythonHomeDesignerPage: React.FC = () => {
       JSON.stringify({
         ...existing,
         worldCredits: newCredits,
-        creditsEarned: (existing.creditsEarned || 250) + 150,
+        creditsEarned: (existing.creditsEarned || 250) + mission.creditsReward,
       })
     );
 
     handleSaveProject();
 
     confetti({
-      particleCount: 100,
-      spread: 70,
+      particleCount: 120,
+      spread: 75,
       origin: { y: 0.6 },
     });
+  };
+
+  // Update room properties from inspector (Bidirectional)
+  const handleUpdateRoom = (updatedRoom: RoomConfig) => {
+    setHouse((prev) => ({
+      ...prev,
+      rooms: prev.rooms.map((r) => (r.id === updatedRoom.id ? updatedRoom : r)),
+    }));
+  };
+
+  // Update furniture properties from inspector
+  const handleUpdateFurniture = (updatedFurn: FurnitureConfig) => {
+    setHouse((prev) => ({
+      ...prev,
+      furniture: prev.furniture.map((f) => (f.id === updatedFurn.id ? updatedFurn : f)),
+    }));
   };
 
   const selectedRoom = house.rooms.find((r) => r.id === selectedRoomId) || null;
@@ -174,7 +239,7 @@ export const PythonHomeDesignerPage: React.FC = () => {
                     Python Home Designer
                   </span>
                   <span className="rounded bg-gradient-to-r from-purple-500 to-cyan-400 px-1.5 py-0.2 text-[8px] font-black text-black uppercase">
-                    3D IDE
+                    3D Studio
                   </span>
                 </div>
 
@@ -210,8 +275,18 @@ export const PythonHomeDesignerPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Right: City Credits, Level, Save Button */}
-          <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+          {/* Right: Actions, City Credits, Level, Save Button */}
+          <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
+            {/* New Project Button */}
+            <button
+              onClick={handleNewProject}
+              className="hidden lg:flex items-center gap-1 rounded-xl border border-gray-800 bg-[#121B2D] px-2.5 py-1.5 text-xs font-bold text-gray-300 hover:text-white transition"
+              title="Start New Project"
+            >
+              <FilePlus className="h-3.5 w-3.5 text-purple-400" />
+              <span>New</span>
+            </button>
+
             {/* City Credits Resource Badge */}
             <div className="flex items-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs font-bold text-amber-300 shadow-sm">
               <Coins className="h-4 w-4 text-amber-400 animate-pulse" />
@@ -288,12 +363,16 @@ export const PythonHomeDesignerPage: React.FC = () => {
             code={code}
             onChangeCode={setCode}
             onRunCode={handleRunCode}
-            onResetCode={() => setCode(STARTER_TEMPLATES.starter.code)}
+            onResetCode={() => {
+              const mission = MISSIONS_DATA.find((m) => m.id === currentMissionId) || MISSIONS_DATA[0];
+              setCode(mission.starterCode);
+            }}
             isRunning={isRunning}
             output={output}
             errors={errors}
             warnings={warnings}
             executionTimeMs={executionTimeMs}
+            currentMissionId={currentMissionId}
           />
         </div>
 
@@ -306,8 +385,14 @@ export const PythonHomeDesignerPage: React.FC = () => {
           <LiveHouseSimulator3D
             house={house}
             selectedRoomId={selectedRoomId}
+            selectedFurnitureId={selectedFurnitureId}
             onSelectRoom={(id) => {
               setSelectedRoomId(id);
+              setSelectedFurnitureId(null);
+              setMobileView('inspector');
+            }}
+            onSelectFurniture={(id) => {
+              setSelectedFurnitureId(id);
               setMobileView('inspector');
             }}
             isFloorPlanView={isFloorPlanView}
@@ -324,9 +409,16 @@ export const PythonHomeDesignerPage: React.FC = () => {
           <BuildingInspectorPanel
             house={house}
             selectedRoom={selectedRoom}
+            selectedFurnitureId={selectedFurnitureId}
             onSelectRoom={setSelectedRoomId}
-            missionCompleted={missionCompleted}
-            onClaimReward={handleClaimReward}
+            onSelectFurniture={setSelectedFurnitureId}
+            onUpdateRoom={handleUpdateRoom}
+            onUpdateFurniture={handleUpdateFurniture}
+            currentMissionId={currentMissionId}
+            completedMissionIds={completedMissionIds}
+            onSelectMission={handleSelectMission}
+            onClaimMissionReward={handleClaimMissionReward}
+            output={output}
           />
         </div>
       </div>
