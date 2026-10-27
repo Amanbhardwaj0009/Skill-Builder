@@ -15,6 +15,7 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
+  Globe,
 } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
@@ -25,6 +26,7 @@ export const Sidebar: React.FC = () => {
     { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
     { label: 'Quest Explorer', path: '/quests', icon: Compass },
     { label: 'Coding Arena', path: '/coding-arena', icon: Code2 },
+    { label: 'Build Your World', path: '/build-world', icon: Globe, badge: 'GAME' },
     { label: 'AI Mentor', path: '/mentor', icon: Bot, badge: 'AI' },
     { label: 'Skill Tree', path: '/skill-tree', icon: GitFork },
     { label: 'Project Builder', path: '/projects', icon: Briefcase },

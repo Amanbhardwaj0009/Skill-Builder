@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
 import api from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
@@ -13,6 +14,10 @@ import {
   Eye,
   Award,
   ChevronDown,
+  Globe,
+  Building2,
+  Sparkles,
+  ArrowRight,
 } from 'lucide-react';
 import { LevelUpModal } from '../../components/LevelUpModal';
 
@@ -136,6 +141,64 @@ export const CodingArenaPage: React.FC = () => {
 
           <div className="flex items-center gap-1 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs font-bold text-amber-400">
             <Zap className="h-4 w-4 fill-amber-400" /> +{selectedChallenge?.xpReward || 25} XP
+          </div>
+        </div>
+      </div>
+
+      {/* Prominent Entry Card: Build Your Own World */}
+      <div className="relative overflow-hidden rounded-2xl border border-cyan-500/30 bg-gradient-to-r from-[#0C1222] via-[#121B2D] to-[#10182E] p-4 sm:p-5 shadow-xl transition hover:border-cyan-400/50">
+        <div className="pointer-events-none absolute right-0 top-0 h-48 w-48 rounded-full bg-cyan-500/10 blur-[80px]" />
+        <div className="pointer-events-none absolute bottom-0 left-1/3 h-40 w-40 rounded-full bg-purple-600/10 blur-[80px]" />
+
+        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="flex items-start sm:items-center gap-3.5">
+            {/* World Thumbnail / Vector Mini Isometric Preview */}
+            <div className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-600 via-indigo-600 to-cyan-400 p-[2px] shadow-glow-purple">
+              <div className="flex h-full w-full items-center justify-center rounded-[14px] bg-[#0A0E1A]">
+                <Globe className="h-7 w-7 text-cyan-400 animate-pulse" />
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="rounded bg-gradient-to-r from-purple-500 to-cyan-400 px-2 py-0.5 text-[9px] font-black uppercase text-black">
+                  New Interactive World Game
+                </span>
+                <span className="text-[10px] font-bold text-cyan-300 flex items-center gap-1">
+                  <Sparkles className="h-3 w-3" /> Live City Sandbox
+                </span>
+              </div>
+              <h2 className="text-base font-bold text-white">Build Your Own World</h2>
+              <p className="text-xs text-gray-400 max-w-xl">
+                Learn new skills, complete missions, and build a city that grows with you.
+              </p>
+            </div>
+          </div>
+
+          {/* Stats & Continue Building Action */}
+          <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 w-full md:w-auto justify-between sm:justify-end">
+            <div className="flex items-center gap-3">
+              <div className="rounded-xl border border-gray-800 bg-[#080B14]/80 px-3 py-1.5 text-center">
+                <span className="block text-[9px] text-gray-400 uppercase font-semibold">World Level</span>
+                <span className="text-xs font-bold text-purple-300">Level 1</span>
+              </div>
+              <div className="rounded-xl border border-gray-800 bg-[#080B14]/80 px-3 py-1.5 text-center">
+                <span className="block text-[9px] text-gray-400 uppercase font-semibold">Structures</span>
+                <span className="text-xs font-bold text-cyan-300">1 Unlocked</span>
+              </div>
+              <div className="rounded-xl border border-gray-800 bg-[#080B14]/80 px-3 py-1.5 text-center">
+                <span className="block text-[9px] text-gray-400 uppercase font-semibold">Missions</span>
+                <span className="text-xs font-bold text-emerald-300">7 Available</span>
+              </div>
+            </div>
+
+            <Link
+              to="/build-world"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 via-indigo-600 to-purple-600 px-5 py-2.5 text-xs font-bold text-white shadow-glow-purple hover:brightness-110 transition shrink-0"
+            >
+              <span>Continue Building</span>
+              <ArrowRight className="h-4 w-4" />
+            </Link>
           </div>
         </div>
       </div>

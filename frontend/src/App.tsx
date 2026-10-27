@@ -20,6 +20,7 @@ import { PortfolioPage } from './pages/projects/PortfolioPage';
 import { TeamChallengesPage } from './pages/teams/TeamChallengesPage';
 import { LeaderboardPage } from './pages/leaderboard/LeaderboardPage';
 import { ProfilePage } from './pages/profile/ProfilePage';
+import { BuildWorldPage } from './pages/build-world/BuildWorldPage';
 import { SettingsPage } from './pages/profile/SettingsPage';
 import { AdminDashboardPage } from './pages/admin/AdminDashboardPage';
 
@@ -42,6 +43,7 @@ export const App: React.FC = () => {
               <Route path="/quests" element={<QuestExplorerPage />} />
               <Route path="/quests/:questId" element={<QuestDetailPage />} />
               <Route path="/coding-arena" element={<CodingArenaPage />} />
+              <Route path="/build-world" element={<BuildWorldPage />} />
               <Route path="/mentor" element={<MentorPage />} />
               <Route path="/skill-tree" element={<SkillTreePage />} />
               <Route path="/projects" element={<ProjectsPage />} />
