@@ -134,6 +134,8 @@ export class AuthController {
         preferredLanguage: user.preferredLanguage,
         interests: user.interests,
         skillLevel: user.skillLevel,
+        currentCareer: user.currentCareer || 'Manufacturing Engineer',
+        careerCluster: user.careerCluster || 'Manufacturing',
         learningGoals: user.learningGoals,
         dailyStudyMinutes: user.dailyStudyMinutes,
         privacy: user.privacy,

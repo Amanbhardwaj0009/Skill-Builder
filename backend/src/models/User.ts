@@ -13,6 +13,8 @@ export interface IUser extends Document {
   dailyStudyMinutes: number;
   currentXP: number;
   currentLevel: number;
+  currentCareer: string;
+  careerCluster: string;
   streak: {
     currentStreak: number;
     longestStreak: number;
@@ -41,6 +43,8 @@ const UserSchema = new Schema<IUser>(
     dailyStudyMinutes: { type: Number, default: 30 },
     currentXP: { type: Number, default: 0, index: true },
     currentLevel: { type: Number, default: 1 },
+    currentCareer: { type: String, default: 'Manufacturing Engineer' },
+    careerCluster: { type: String, default: 'Manufacturing' },
     streak: {
       currentStreak: { type: Number, default: 0 },
       longestStreak: { type: Number, default: 0 },

@@ -16,6 +16,8 @@ export interface User {
   };
   preferredLanguage: string;
   interests: string[];
+  currentCareer?: string;
+  careerCluster?: string;
   skillLevel?: 'beginner' | 'intermediate' | 'advanced';
   learningGoals?: string[];
   dailyStudyMinutes?: number;

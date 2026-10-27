@@ -26,6 +26,8 @@ export const updateProfileSchema = z.object({
   avatar: z.string().url().optional(),
   preferredLanguage: z.string().optional(),
   interests: z.array(z.string()).optional(),
+  currentCareer: z.string().optional(),
+  careerCluster: z.string().optional(),
   learningGoals: z.array(z.string()).optional(),
   dailyStudyMinutes: z.number().optional(),
   privacy: z.object({
