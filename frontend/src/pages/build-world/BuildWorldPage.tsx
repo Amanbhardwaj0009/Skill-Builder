@@ -494,6 +494,36 @@ export const BuildWorldPage: React.FC = () => {
         </div>
       </header>
 
+      {/* Featured Mode: Python Home Designer */}
+      <div className="relative overflow-hidden rounded-2xl border border-cyan-500/30 bg-gradient-to-r from-[#0C1222] via-[#121B2D] to-[#10182E] p-3.5 sm:p-4 shadow-xl">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 via-indigo-600 to-purple-600 p-[2px] shadow-glow-cyan">
+              <div className="flex h-full w-full items-center justify-center rounded-[10px] bg-[#0A0E1A]">
+                <Building2 className="h-5 w-5 text-cyan-400" />
+              </div>
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="rounded bg-gradient-to-r from-cyan-400 to-purple-500 px-1.5 py-0.2 text-[8px] font-black uppercase text-black">
+                  Python 3D Simulator
+                </span>
+                <span className="text-[10px] font-bold text-cyan-300">Live Coding Game</span>
+              </div>
+              <h3 className="text-xs sm:text-sm font-bold text-white">Python Home Designer</h3>
+              <p className="text-[11px] text-gray-400">Write Python. Design Homes. Build Your World.</p>
+            </div>
+          </div>
+          <Link
+            to="/python-home-designer"
+            className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-cyan-500 to-purple-600 px-4 py-2 text-xs font-bold text-white shadow-glow-cyan hover:brightness-110 transition shrink-0"
+          >
+            <span>Enter Home Designer</span>
+            <Sparkles className="h-3.5 w-3.5" />
+          </Link>
+        </div>
+      </div>
+
       {/* Mobile Tab Switcher */}
       <div className="flex md:hidden rounded-xl bg-[#0C1222] border border-gray-800 p-1 text-xs font-bold">
         <button

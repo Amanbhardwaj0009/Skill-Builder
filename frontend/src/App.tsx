@@ -21,6 +21,7 @@ import { TeamChallengesPage } from './pages/teams/TeamChallengesPage';
 import { LeaderboardPage } from './pages/leaderboard/LeaderboardPage';
 import { ProfilePage } from './pages/profile/ProfilePage';
 import { BuildWorldPage } from './pages/build-world/BuildWorldPage';
+import { PythonHomeDesignerPage } from './pages/python-home-designer/PythonHomeDesignerPage';
 import { SettingsPage } from './pages/profile/SettingsPage';
 import { AdminDashboardPage } from './pages/admin/AdminDashboardPage';
 
@@ -44,6 +45,7 @@ export const App: React.FC = () => {
               <Route path="/quests/:questId" element={<QuestDetailPage />} />
               <Route path="/coding-arena" element={<CodingArenaPage />} />
               <Route path="/build-world" element={<BuildWorldPage />} />
+              <Route path="/python-home-designer" element={<PythonHomeDesignerPage />} />
               <Route path="/mentor" element={<MentorPage />} />
               <Route path="/skill-tree" element={<SkillTreePage />} />
               <Route path="/projects" element={<ProjectsPage />} />
