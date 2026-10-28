@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import multer from 'multer';
 import { AIController } from '../controllers/ai.controller.js';
 import { authenticate } from '../middleware/auth.js';
 import { validateRequest } from '../middleware/validate.js';
@@ -12,7 +13,25 @@ import {
 
 const router = Router();
 
+// Memory storage for file uploads
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+});
+
+// Chat & Streaming
 router.post('/chat', authenticate, validateRequest(aiChatSchema), AIController.chat);
+router.post('/chat/stream', authenticate, AIController.chatStream);
+
+// RAG Documents Knowledge Base
+router.post('/documents/upload', authenticate, upload.single('file'), AIController.uploadDocument);
+router.get('/documents', authenticate, AIController.getDocuments);
+router.delete('/documents/:id', authenticate, AIController.deleteDocument);
+
+// Usage & Quotas
+router.get('/usage', authenticate, AIController.getUsage);
+
+// Learning Features
 router.post('/explain', authenticate, validateRequest(aiExplainSchema), AIController.explain);
 router.post('/hint', authenticate, validateRequest(aiHintSchema), AIController.hint);
 router.post('/generate-quiz', authenticate, validateRequest(aiGenerateQuizSchema), AIController.generateQuiz);

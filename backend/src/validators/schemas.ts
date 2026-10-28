@@ -60,6 +60,9 @@ export const aiChatSchema = z.object({
   ),
   language: z.string().optional().default('English'),
   topicContext: z.string().optional(),
+  conversationId: z.string().optional(),
+  enableRag: z.boolean().optional().default(true),
+  documentIds: z.array(z.string()).optional(),
 });
 
 export const aiExplainSchema = z.object({

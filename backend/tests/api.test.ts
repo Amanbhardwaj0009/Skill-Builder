@@ -118,4 +118,76 @@ describe('SkillQuest AI Backend API Integration Tests', () => {
     expect(res.status).toBe(200);
     expect(res.body.metrics.totalUsers).toBeGreaterThanOrEqual(2);
   });
+
+  it('10. AI RAG: Ingests course document and answers queries with verified citations', async () => {
+    // 1. Upload sample course document
+    const uploadRes = await request(app)
+      .post('/api/ai/documents/upload')
+      .set('Authorization', `Bearer ${studentToken}`)
+      .send({
+        filename: 'data_structures_syllabus.md',
+        content: '# Advanced Trees and Tries\nA Trie (Prefix Tree) is an ordered tree data structure used to store a dynamic set of strings. Keys are usually strings, where nodes share common prefixes. Search and insert time complexity is O(L), where L is the key length.',
+      });
+
+    expect(uploadRes.status).toBe(201);
+    expect(uploadRes.body.document).toBeDefined();
+    expect(uploadRes.body.document.chunkCount).toBeGreaterThanOrEqual(1);
+
+    // 2. Query the AI Mentor on this uploaded document topic
+    const chatRes = await request(app)
+      .post('/api/ai/chat')
+      .set('Authorization', `Bearer ${studentToken}`)
+      .send({
+        messages: [{ role: 'user', content: 'What is a Trie and what is its time complexity according to my syllabus?' }],
+        enableRag: true,
+      });
+
+    expect(chatRes.status).toBe(200);
+    expect(chatRes.body.sources).toBeDefined();
+    expect(chatRes.body.sources.length).toBeGreaterThan(0);
+    expect(chatRes.body.sources[0].filename).toBe('data_structures_syllabus.md');
+    expect(chatRes.body.reply).toContain('data_structures_syllabus.md');
+  });
+
+  it('11. AI Mentor: Multi-question query decomposes into structured sections', async () => {
+    const multiRes = await request(app)
+      .post('/api/ai/chat')
+      .set('Authorization', `Bearer ${studentToken}`)
+      .send({
+        messages: [{ role: 'user', content: '1. What is HTML? 2. How does CSS differ from it?' }],
+      });
+
+    expect(multiRes.status).toBe(200);
+    expect(multiRes.body.multiQuestionHandled).toBe(true);
+    expect(multiRes.body.reply).toContain('### 1.');
+    expect(multiRes.body.reply).toContain('### 2.');
+  });
+
+  it('12. AI Mentor: Conversational follow-up handles code conversion accurately', async () => {
+    const followUpRes = await request(app)
+      .post('/api/ai/chat')
+      .set('Authorization', `Bearer ${studentToken}`)
+      .send({
+        messages: [
+          { role: 'user', content: 'Write a function to filter positive numbers in JavaScript' },
+          { role: 'assistant', content: '```javascript\nfunction executeLogic(items) {\n  return items.filter(x => x > 0);\n}\n```' },
+          { role: 'user', content: 'Can you convert that to Python?' },
+        ],
+      });
+
+    expect(followUpRes.status).toBe(200);
+    expect(followUpRes.body.reply).toContain('Python');
+    expect(followUpRes.body.reply).toContain('def execute_logic');
+  });
+
+  it('13. AI Usage: Retrieves user daily quotas and usage statistics', async () => {
+    const usageRes = await request(app)
+      .get('/api/ai/usage')
+      .set('Authorization', `Bearer ${studentToken}`);
+
+    expect(usageRes.status).toBe(200);
+    expect(usageRes.body.requestsCount).toBeGreaterThan(0);
+    expect(usageRes.body.requestsLimit).toBe(100);
+    expect(usageRes.body.documentsCount).toBeGreaterThanOrEqual(1);
+  });
 });
