@@ -19,6 +19,9 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
 });
 
+// Status & Config
+router.get('/status', AIController.getStatus);
+
 // Chat & Streaming
 router.post('/chat', authenticate, validateRequest(aiChatSchema), AIController.chat);
 router.post('/chat/stream', authenticate, AIController.chatStream);

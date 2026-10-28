@@ -1,14 +1,38 @@
-import { Response } from 'express';
+import { Response, Request } from 'express';
 import { AuthRequest } from '../middleware/auth.js';
 import { AIService } from '../services/ai.service.js';
 import { Conversation } from '../models/Conversation.js';
 import { RAGService } from '../services/rag.service.js';
 import { AiUsageModel, DAILY_AI_REQUEST_LIMIT, MAX_DOCUMENTS_PER_USER } from '../models/AiUsage.js';
+import { config } from '../config/env.js';
 
 export class AIController {
+  /**
+   * Check LLM configuration status
+   */
+  static async getStatus(req: Request, res: Response): Promise<void> {
+    res.json({
+      hasServerKey: Boolean(config.llm.apiKey),
+      provider: config.llm.provider,
+      model: config.llm.model,
+      baseUrl: config.llm.baseUrl || undefined,
+    });
+  }
+
   static async chat(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const { messages, language, topicContext, conversationId, enableRag, documentIds } = req.body;
+      const {
+        messages,
+        language,
+        topicContext,
+        conversationId,
+        enableRag,
+        documentIds,
+        apiKey,
+        provider,
+        model,
+        baseUrl,
+      } = req.body;
       const userId = req.user!._id;
 
       const chatResult = await AIService.chat(messages, {
@@ -17,6 +41,10 @@ export class AIController {
         topicContext,
         enableRag: enableRag !== false,
         documentIds,
+        apiKey,
+        provider,
+        model,
+        baseUrl,
       });
 
       // Persist to user's conversation history
@@ -55,8 +83,17 @@ export class AIController {
         multiQuestionHandled: chatResult.multiQuestionHandled,
       });
     } catch (err: any) {
-      const statusCode = err.message.includes('limit reached') ? 429 : 500;
-      res.status(statusCode).json({ message: 'AI chat error', error: err.message });
+      const isQuota = err.message?.includes('limit reached');
+      const isKeyMissing = err.message?.includes('not configured');
+      const isAuthError = err.message?.includes('Invalid') || err.message?.includes('Unauthorized');
+      const statusCode = isQuota ? 429 : isKeyMissing ? 503 : isAuthError ? 401 : 500;
+
+      res.status(statusCode).json({
+        message: err.message,
+        error: err.message,
+        code: isKeyMissing ? 'LLM_KEY_REQUIRED' : isQuota ? 'QUOTA_EXCEEDED' : 'PROVIDER_ERROR',
+        canRetry: !isQuota,
+      });
     }
   }
 
@@ -65,7 +102,18 @@ export class AIController {
    */
   static async chatStream(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const { messages, language, topicContext, conversationId, enableRag, documentIds } = req.body;
+      const {
+        messages,
+        language,
+        topicContext,
+        conversationId,
+        enableRag,
+        documentIds,
+        apiKey,
+        provider,
+        model,
+        baseUrl,
+      } = req.body;
       const userId = req.user!._id;
 
       // Set headers for SSE
@@ -80,6 +128,10 @@ export class AIController {
         topicContext,
         enableRag: enableRag !== false,
         documentIds,
+        apiKey,
+        provider,
+        model,
+        baseUrl,
       });
 
       // Stream out the response tokens/chunks
@@ -87,7 +139,6 @@ export class AIController {
       for (let i = 0; i < words.length; i++) {
         const chunk = words[i];
         res.write(`data: ${JSON.stringify({ chunk })}\n\n`);
-        // Tiny pacing for smooth visual typing effect
         if (i % 8 === 0) {
           await new Promise((resolve) => setTimeout(resolve, 20));
         }
@@ -135,7 +186,7 @@ export class AIController {
       if (!res.headersSent) {
         res.status(500).json({ message: 'Streaming error', error: err.message });
       } else {
-        res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
+        res.write(`data: ${JSON.stringify({ error: err.message, canRetry: true })}\n\n`);
         res.end();
       }
     }
@@ -151,7 +202,6 @@ export class AIController {
       let buffer: Buffer | null = null;
       let fileType: 'pdf' | 'docx' | 'txt' | 'md' = 'txt';
 
-      // 1. Check if multipart file from multer
       if ((req as any).file) {
         const file = (req as any).file;
         filename = file.originalname;
@@ -162,7 +212,6 @@ export class AIController {
         else if (ext === 'md' || ext === 'markdown') fileType = 'md';
         else fileType = 'txt';
       } else if (req.body.filename && req.body.content) {
-        // 2. Base64 or string JSON payload
         filename = req.body.filename;
         const ext = filename.split('.').pop()?.toLowerCase();
         if (ext === 'pdf') fileType = 'pdf';

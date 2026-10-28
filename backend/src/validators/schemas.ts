@@ -63,6 +63,10 @@ export const aiChatSchema = z.object({
   conversationId: z.string().optional(),
   enableRag: z.boolean().optional().default(true),
   documentIds: z.array(z.string()).optional(),
+  apiKey: z.string().optional(),
+  provider: z.string().optional(),
+  model: z.string().optional(),
+  baseUrl: z.string().optional(),
 });
 
 export const aiExplainSchema = z.object({

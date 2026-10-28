@@ -13,15 +13,17 @@ import {
   UploadCloud,
   Trash2,
   BookOpen,
-  ChevronRight,
-  ChevronDown,
-  Layers,
   Database,
-  Info,
   X,
   FileCode,
   FileCheck,
   Flame,
+  Settings,
+  KeyRound,
+  RefreshCw,
+  AlertCircle,
+  ExternalLink,
+  ChevronRight,
 } from 'lucide-react';
 
 interface RetrievedSource {
@@ -41,6 +43,9 @@ interface Message {
   sources?: RetrievedSource[];
   routingMode?: 'rag' | 'general' | 'hybrid';
   multiQuestionHandled?: boolean;
+  isError?: boolean;
+  canRetry?: boolean;
+  retryQuery?: string;
 }
 
 interface DocumentItem {
@@ -64,21 +69,30 @@ interface UsageInfo {
   documentsLimit: number;
 }
 
+interface LlmSettings {
+  provider: 'gemini' | 'openai' | 'custom';
+  apiKey: string;
+  model: string;
+  baseUrl: string;
+}
+
+const STORAGE_SETTINGS_KEY = 'skillquest_llm_settings';
+
 export const MentorPage: React.FC = () => {
   const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
-      content: `Greetings Explorer ${user?.name || ''}! 🛡️ I am your **SkillQuest AI Mentor & Knowledge Assistant**.
+      content: `Hello ${user?.name || 'Explorer'}! 👋 I am **SkillQuest AI**, your general-purpose conversational assistant.
 
-I am fully open-ended and ready to explore any question:
-- Demystify algorithms, data structures (DSA), architectures, and system design.
-- Answer compound questions broken down into structured, numbered sections.
-- Retrieve and cite information from your **uploaded course documents (RAG)**.
-- Explain code line-by-line, debug syntax and logical errors, or convert code across languages.
-- Break down concepts in **English** or **Hindi (हिंदी)**.
+You can talk to me about anything:
+- 💬 **Casual conversation & Greetings:** "Hi", "How are you?", brainstorming, writing stories.
+- 🌍 **General Knowledge & Science:** Quantum computing, history, astronomy, mathematics, geography.
+- 💻 **Coding & Debugging:** Writing Python, JavaScript, HTML/CSS, algorithms, analyzing errors.
+- 📑 **Course Knowledge Base (RAG):** Upload syllabus, notes, or PDFs, and I will retrieve and cite them.
+- 🎯 **Multi-question requests:** Ask complex questions with multiple parts, and I'll answer each thoroughly.
 
-What challenge or document would you like to explore today?`,
+What would you like to explore or discuss today?`,
     },
   ]);
   const [input, setInput] = useState('');
@@ -94,6 +108,33 @@ What challenge or document would you like to explore today?`,
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [activeCitation, setActiveCitation] = useState<RetrievedSource | null>(null);
+
+  // LLM Settings State
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [serverStatus, setServerStatus] = useState<{
+    hasServerKey: boolean;
+    provider: string;
+    model: string;
+  } | null>(null);
+
+  const [llmSettings, setLlmSettings] = useState<LlmSettings>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_SETTINGS_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return {
+      provider: 'gemini',
+      apiKey: '',
+      model: 'gemini-1.5-flash',
+      baseUrl: '',
+    };
+  });
+
+  const [tempApiKey, setTempApiKey] = useState(llmSettings.apiKey);
+  const [tempProvider, setTempProvider] = useState(llmSettings.provider);
+  const [tempModel, setTempModel] = useState(llmSettings.model);
+  const [tempBaseUrl, setTempBaseUrl] = useState(llmSettings.baseUrl);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   // Usage Quota State
   const [usage, setUsage] = useState<UsageInfo>({
@@ -116,11 +157,22 @@ What challenge or document would you like to explore today?`,
     scrollToBottom();
   }, [messages, loading]);
 
-  // Load documents and usage info on mount
   useEffect(() => {
     fetchDocuments();
     fetchUsage();
+    fetchServerStatus();
   }, []);
+
+  const fetchServerStatus = async () => {
+    try {
+      const res = await api.get('/ai/status');
+      if (res.data) {
+        setServerStatus(res.data);
+      }
+    } catch (err) {
+      console.warn('Could not fetch server AI status:', err);
+    }
+  };
 
   const fetchDocuments = async () => {
     try {
@@ -144,11 +196,31 @@ What challenge or document would you like to explore today?`,
     }
   };
 
+  const saveSettings = () => {
+    const updated: LlmSettings = {
+      provider: tempProvider,
+      apiKey: tempApiKey.trim(),
+      model: tempModel.trim() || (tempProvider === 'openai' ? 'gpt-4o-mini' : 'gemini-1.5-flash'),
+      baseUrl: tempBaseUrl.trim(),
+    };
+    setLlmSettings(updated);
+    try {
+      localStorage.setItem(STORAGE_SETTINGS_KEY, JSON.stringify(updated));
+    } catch {}
+    setSaveSuccess(true);
+    setTimeout(() => {
+      setSaveSuccess(false);
+      setIsSettingsOpen(false);
+    }, 1200);
+  };
+
   const handleSend = async (textToSend?: string) => {
     const query = textToSend || input;
     if (!query.trim() || loading) return;
 
-    const newMessages: Message[] = [...messages, { role: 'user', content: query }];
+    // Remove any previous trailing error retry banner
+    const filteredHistory = messages.filter((m) => !m.isError);
+    const newMessages: Message[] = [...filteredHistory, { role: 'user', content: query }];
     setMessages(newMessages);
     setInput('');
     setLoading(true);
@@ -157,8 +229,11 @@ What challenge or document would you like to explore today?`,
       const res = await api.post('/ai/chat', {
         messages: newMessages.map((m) => ({ role: m.role, content: m.content })),
         language,
-        topicContext: user?.interests?.[0] || 'Computer Science',
         enableRag,
+        apiKey: llmSettings.apiKey || undefined,
+        provider: llmSettings.provider || undefined,
+        model: llmSettings.model || undefined,
+        baseUrl: llmSettings.baseUrl || undefined,
       });
 
       setMessages([
@@ -173,15 +248,23 @@ What challenge or document would you like to explore today?`,
       ]);
       fetchUsage();
     } catch (err: any) {
-      const errMsg =
-        err.response?.data?.error ||
-        err.response?.data?.message ||
-        '⚠️ I encountered an interruption in our neural connection. Please verify your connection or try again shortly.';
+      const errResponse = err.response?.data;
+      const errorMessage =
+        errResponse?.error ||
+        errResponse?.message ||
+        err.message ||
+        'Connection interrupted. Unable to reach the AI model endpoint.';
+
+      const isKeyRequired = errResponse?.code === 'LLM_KEY_REQUIRED' || err.response?.status === 503;
+
       setMessages([
         ...newMessages,
         {
           role: 'assistant',
-          content: errMsg,
+          content: errorMessage,
+          isError: true,
+          canRetry: true,
+          retryQuery: query,
         },
       ]);
     } finally {
@@ -237,16 +320,20 @@ What challenge or document would you like to explore today?`,
   };
 
   const suggestedPrompts = [
-    'Explain HTML, compare it with CSS, and provide a practical code example.',
-    'What are the key concepts in my uploaded document?',
-    'Explain how Hash Maps achieve O(1) lookup in Hindi (हिंदी).',
-    'How does Binary Search work and what is its logarithmic time complexity?',
-    'Convert this solution to Python and explain the syntax differences.',
+    'Hello! How are you doing today?',
+    'Explain quantum computing in simple terms.',
+    'Write a romantic short story set in Kyoto.',
+    'Write a Python program to sort a list using quicksort.',
+    'Explain HTML versus CSS, provide an example, and explain the output.',
+    'What is the capital of Japan?',
+    'Help me debug this code: for i in range(len(arr)): print(arr[i+1])',
   ];
+
+  const hasConfiguredKey = Boolean(llmSettings.apiKey || serverStatus?.hasServerKey);
 
   return (
     <div className="relative flex h-[calc(100vh-7rem)] flex-col rounded-3xl border border-purple-500/20 bg-[#121B2D]/90 shadow-2xl backdrop-blur overflow-hidden animate-fade-in">
-      {/* Top Mentor Control Bar */}
+      {/* Top AI Header Bar */}
       <div className="flex flex-wrap items-center justify-between border-b border-gray-800 bg-[#101626] px-4 md:px-6 py-3.5 gap-3">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-tr from-cyan-500 to-purple-600 p-[2px] shadow-glow-cyan">
@@ -256,15 +343,21 @@ What challenge or document would you like to explore today?`,
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-sm font-bold text-white">AI Mentor & RAG Assistant</h2>
-              <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-[10px] text-emerald-400 font-semibold hidden sm:inline">Active & Synchronized</span>
+              <h2 className="text-sm font-bold text-white">SkillQuest AI Assistant</h2>
+              <span
+                className={`flex h-2 w-2 rounded-full ${
+                  hasConfiguredKey ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
+                }`}
+              />
+              <span className="text-[10px] text-gray-400 font-semibold hidden sm:inline">
+                {hasConfiguredKey ? 'General-Purpose LLM Ready' : 'Key Setup Available'}
+              </span>
             </div>
-            <p className="text-[11px] text-gray-400">Open-Ended Guidance & Course Knowledge Base</p>
+            <p className="text-[11px] text-gray-400">Open-Ended Conversational AI & Document Knowledge</p>
           </div>
         </div>
 
-        {/* Quota Counter & Controls */}
+        {/* Quota Counter & Control Actions */}
         <div className="flex items-center gap-2 md:gap-3 flex-wrap">
           {/* Daily Quota Indicator */}
           <div className="flex items-center gap-2 rounded-xl border border-gray-800 bg-[#080B14] px-3 py-1.5 text-[11px] text-gray-300">
@@ -273,6 +366,20 @@ What challenge or document would you like to explore today?`,
               <strong className="text-white">{usage.requestsCount}</strong> / {usage.requestsLimit} Quota
             </span>
           </div>
+
+          {/* Settings Button */}
+          <button
+            onClick={() => setIsSettingsOpen(true)}
+            className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
+              hasConfiguredKey
+                ? 'border-gray-800 bg-[#080B14] text-gray-300 hover:text-white'
+                : 'border-amber-500/50 bg-amber-950/30 text-amber-300 hover:bg-amber-900/40 animate-pulse'
+            }`}
+            title="Configure LLM Provider & API Key"
+          >
+            <KeyRound className="h-3.5 w-3.5 text-amber-400" />
+            <span className="hidden sm:inline">AI Settings</span>
+          </button>
 
           {/* Knowledge Base Drawer Toggle */}
           <button
@@ -303,6 +410,8 @@ What challenge or document would you like to explore today?`,
               <option value="English">English</option>
               <option value="Hindi">Hindi (हिंदी)</option>
               <option value="Hinglish">Hinglish</option>
+              <option value="Spanish">Español</option>
+              <option value="French">Français</option>
             </select>
           </div>
 
@@ -312,7 +421,7 @@ What challenge or document would you like to explore today?`,
               setMessages([
                 {
                   role: 'assistant',
-                  content: 'Neural memory reset. What new problem or topic shall we tackle?',
+                  content: 'New chat started. What would you like to discuss?',
                 },
               ])
             }
@@ -326,7 +435,7 @@ What challenge or document would you like to explore today?`,
       </div>
 
       <div className="relative flex flex-1 overflow-hidden">
-        {/* Main Chat Messages Feed */}
+        {/* Main Chat Feed */}
         <div className="flex-1 space-y-4 overflow-y-auto p-4 md:p-6">
           {messages.map((msg, index) => {
             const isUser = msg.role === 'user';
@@ -336,8 +445,14 @@ What challenge or document would you like to explore today?`,
                 className={`flex gap-3 ${isUser ? 'justify-end' : 'justify-start'}`}
               >
                 {!isUser && (
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-purple-600/20 text-cyan-400 border border-purple-500/30">
-                    <Bot className="h-4 w-4" />
+                  <div
+                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border ${
+                      msg.isError
+                        ? 'bg-red-950/40 border-red-500/40 text-red-400'
+                        : 'bg-purple-600/20 border-purple-500/30 text-cyan-400'
+                    }`}
+                  >
+                    {msg.isError ? <AlertCircle className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
                   </div>
                 )}
 
@@ -345,22 +460,24 @@ What challenge or document would you like to explore today?`,
                   className={`relative max-w-3xl rounded-2xl p-4 text-xs md:text-sm leading-relaxed ${
                     isUser
                       ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-glow-purple/20'
+                      : msg.isError
+                      ? 'border border-red-500/40 bg-red-950/20 text-red-200'
                       : 'border border-gray-800 bg-[#101626] text-gray-200 shadow-md'
                   }`}
                 >
-                  {!isUser && (
+                  {!isUser && !msg.isError && (
                     <div className="flex items-center justify-between pb-2 mb-2 border-b border-gray-800/60">
                       <div className="flex items-center gap-2">
                         {msg.routingMode === 'rag' && (
                           <span className="inline-flex items-center gap-1 rounded-md bg-purple-950/80 border border-purple-600/40 px-2 py-0.5 text-[10px] font-semibold text-purple-300">
                             <BookOpen className="h-3 w-3 text-purple-400" />
-                            RAG Document Synthesis
+                            RAG Document Excerpts
                           </span>
                         )}
                         {msg.multiQuestionHandled && (
                           <span className="inline-flex items-center gap-1 rounded-md bg-cyan-950/80 border border-cyan-600/40 px-2 py-0.5 text-[10px] font-semibold text-cyan-300">
                             <Sparkles className="h-3 w-3 text-cyan-400" />
-                            Multi-Part Analysis
+                            Multi-Question Breakdown
                           </span>
                         )}
                       </div>
@@ -379,17 +496,37 @@ What challenge or document would you like to explore today?`,
                     </div>
                   )}
 
-                  {/* Render Message Content with Code block formatting */}
-                  <div className="space-y-3 whitespace-pre-wrap font-sans">
-                    {msg.content}
-                  </div>
+                  {/* Message Content */}
+                  <div className="space-y-3 whitespace-pre-wrap font-sans">{msg.content}</div>
 
-                  {/* Source Citations Drawer if available */}
+                  {/* Retry & Settings Controls on Error */}
+                  {msg.isError && (
+                    <div className="mt-3 flex flex-wrap items-center gap-2 pt-2 border-t border-red-500/20">
+                      {msg.canRetry && msg.retryQuery && (
+                        <button
+                          onClick={() => handleSend(msg.retryQuery)}
+                          className="flex items-center gap-1.5 rounded-lg bg-red-600/30 border border-red-500/50 px-3 py-1.5 text-xs font-semibold text-red-200 hover:bg-red-600/50 transition"
+                        >
+                          <RefreshCw className="h-3.5 w-3.5" />
+                          <span>Retry Question</span>
+                        </button>
+                      )}
+                      <button
+                        onClick={() => setIsSettingsOpen(true)}
+                        className="flex items-center gap-1.5 rounded-lg bg-purple-600/30 border border-purple-500/50 px-3 py-1.5 text-xs font-semibold text-purple-200 hover:bg-purple-600/50 transition"
+                      >
+                        <KeyRound className="h-3.5 w-3.5" />
+                        <span>Configure API Key</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Source Citations Drawer */}
                   {!isUser && msg.sources && msg.sources.length > 0 && (
                     <div className="mt-4 pt-3 border-t border-purple-500/20">
                       <div className="flex items-center gap-1.5 text-[11px] font-bold text-purple-400 mb-2">
                         <Database className="h-3.5 w-3.5" />
-                        <span>Verified Knowledge Sources ({msg.sources.length}):</span>
+                        <span>Document References ({msg.sources.length}):</span>
                       </div>
                       <div className="flex flex-wrap gap-2">
                         {msg.sources.map((src, sIdx) => (
@@ -427,7 +564,7 @@ What challenge or document would you like to explore today?`,
               </div>
               <div className="flex items-center gap-2.5 rounded-2xl border border-gray-800 bg-[#101626] px-4 py-3 text-xs text-gray-300 shadow-lg">
                 <span className="flex h-2 w-2 rounded-full bg-cyan-400 animate-ping" />
-                <span className="text-cyan-300 font-medium">Retrieving knowledge & synthesizing answer...</span>
+                <span className="text-cyan-300 font-medium">Generating response...</span>
               </div>
             </div>
           )}
@@ -435,7 +572,7 @@ What challenge or document would you like to explore today?`,
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Slide-out Knowledge Base (RAG) Drawer */}
+        {/* Slide-out Knowledge Base Drawer */}
         {isKnowledgeDrawerOpen && (
           <div className="w-80 md:w-96 border-l border-gray-800 bg-[#0c101c] p-4 flex flex-col z-20 shadow-2xl transition-all duration-300">
             <div className="flex items-center justify-between pb-3 border-b border-gray-800">
@@ -452,10 +589,10 @@ What challenge or document would you like to explore today?`,
             </div>
 
             <p className="text-[11px] text-gray-400 mt-2">
-              Upload PDF, DOCX, TXT, or Markdown notes. The AI will semantically index and cite them in your answers.
+              Upload PDF, DOCX, TXT, or Markdown notes. The assistant will retrieve relevant sections when answering
+              questions about them.
             </p>
 
-            {/* Document Upload Area */}
             <div className="mt-4">
               <input
                 type="file"
@@ -490,19 +627,18 @@ What challenge or document would you like to explore today?`,
               )}
             </div>
 
-            {/* Document List */}
             <div className="flex-1 overflow-y-auto mt-4 space-y-2.5 pr-1">
               <div className="flex items-center justify-between text-xs text-gray-400 font-semibold mb-1">
-                <span>Indexed Documents ({documents.length}/{usage.documentsLimit})</span>
+                <span>
+                  Indexed Documents ({documents.length}/{usage.documentsLimit})
+                </span>
               </div>
 
               {documents.length === 0 ? (
                 <div className="rounded-xl border border-gray-800 bg-[#101626]/60 p-4 text-center">
                   <FileText className="mx-auto h-8 w-8 text-gray-600 mb-1" />
                   <p className="text-xs text-gray-400">No documents uploaded yet.</p>
-                  <p className="text-[10px] text-gray-500 mt-1">
-                    Upload course notes or syllabus files to test RAG retrieval!
-                  </p>
+                  <p className="text-[10px] text-gray-500 mt-1">General chat works independently without any documents.</p>
                 </div>
               ) : (
                 documents.map((doc) => (
@@ -537,6 +673,145 @@ What challenge or document would you like to explore today?`,
         )}
       </div>
 
+      {/* LLM Settings Modal */}
+      {isSettingsOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-md rounded-2xl border border-purple-500/40 bg-[#101626] p-6 shadow-2xl">
+            <div className="flex items-center justify-between pb-3 border-b border-gray-800">
+              <div className="flex items-center gap-2">
+                <KeyRound className="h-5 w-5 text-amber-400" />
+                <h3 className="text-sm font-bold text-white">General-Purpose LLM Settings</h3>
+              </div>
+              <button
+                onClick={() => setIsSettingsOpen(false)}
+                className="rounded-lg p-1 text-gray-400 hover:text-white hover:bg-gray-800 transition"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-4">
+              {serverStatus?.hasServerKey ? (
+                <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-3 text-xs text-emerald-300 flex items-center gap-2">
+                  <Check className="h-4 w-4 text-emerald-400" />
+                  <span>
+                    Server environment key active (<strong>{serverStatus.provider}</strong> / {serverStatus.model}). You
+                    can override it below if desired.
+                  </span>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-amber-500/30 bg-amber-950/20 p-3 text-xs text-amber-300">
+                  <p>
+                    No server API key found in <code>backend/.env</code>. Enter your API key below to connect SkillQuest AI
+                    to a live model.
+                  </p>
+                </div>
+              )}
+
+              {/* Provider Selection */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-300 mb-1">AI Provider</label>
+                <select
+                  value={tempProvider}
+                  onChange={(e) => {
+                    const p = e.target.value as any;
+                    setTempProvider(p);
+                    if (p === 'gemini') setTempModel('gemini-1.5-flash');
+                    if (p === 'openai') setTempModel('gpt-4o-mini');
+                  }}
+                  className="w-full rounded-xl border border-gray-800 bg-[#080B14] px-3 py-2 text-xs text-white focus:border-purple-500 focus:outline-none"
+                >
+                  <option value="gemini">Google Gemini (Recommended, fast & free tier available)</option>
+                  <option value="openai">OpenAI (ChatGPT models)</option>
+                  <option value="custom">Custom Endpoint / Local Ollama (OpenAI compatible)</option>
+                </select>
+              </div>
+
+              {/* API Key Input */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-semibold text-gray-300">
+                    {tempProvider === 'gemini' ? 'Gemini API Key' : 'API Key'}
+                  </label>
+                  {tempProvider === 'gemini' && (
+                    <a
+                      href="https://aistudio.google.com/app/apikey"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[10px] text-cyan-400 hover:underline flex items-center gap-0.5"
+                    >
+                      Get Gemini Key <ExternalLink className="h-2.5 w-2.5" />
+                    </a>
+                  )}
+                </div>
+                <input
+                  type="password"
+                  value={tempApiKey}
+                  onChange={(e) => setTempApiKey(e.target.value)}
+                  placeholder={
+                    tempProvider === 'gemini'
+                      ? 'AIzaSy...'
+                      : tempProvider === 'openai'
+                      ? 'sk-proj-...'
+                      : 'Optional or provider key'
+                  }
+                  className="w-full rounded-xl border border-gray-800 bg-[#080B14] px-3 py-2 text-xs text-white focus:border-purple-500 focus:outline-none"
+                />
+              </div>
+
+              {/* Model Name */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-300 mb-1">Model Name</label>
+                <input
+                  type="text"
+                  value={tempModel}
+                  onChange={(e) => setTempModel(e.target.value)}
+                  placeholder={tempProvider === 'openai' ? 'gpt-4o-mini' : 'gemini-1.5-flash'}
+                  className="w-full rounded-xl border border-gray-800 bg-[#080B14] px-3 py-2 text-xs text-white focus:border-purple-500 focus:outline-none"
+                />
+              </div>
+
+              {/* Custom Base URL */}
+              {tempProvider === 'custom' && (
+                <div>
+                  <label className="block text-xs font-semibold text-gray-300 mb-1">
+                    Base URL (e.g. http://localhost:11434/v1 for Ollama)
+                  </label>
+                  <input
+                    type="text"
+                    value={tempBaseUrl}
+                    onChange={(e) => setTempBaseUrl(e.target.value)}
+                    placeholder="http://localhost:11434/v1"
+                    className="w-full rounded-xl border border-gray-800 bg-[#080B14] px-3 py-2 text-xs text-white focus:border-purple-500 focus:outline-none"
+                  />
+                </div>
+              )}
+
+              {saveSuccess && (
+                <div className="rounded-xl bg-emerald-950/40 border border-emerald-500/40 p-2.5 text-xs text-emerald-300 text-center font-semibold">
+                  ✓ Settings saved successfully!
+                </div>
+              )}
+            </div>
+
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                onClick={() => setIsSettingsOpen(false)}
+                className="rounded-xl border border-gray-800 px-4 py-2 text-xs font-medium text-gray-400 hover:text-white transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveSettings}
+                className="rounded-xl bg-gradient-to-r from-purple-600 to-cyan-500 px-5 py-2 text-xs font-bold text-white shadow-glow-purple hover:opacity-95 transition"
+              >
+                Save & Apply
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Citation Preview Modal */}
       {activeCitation && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm animate-fade-in">
@@ -563,7 +838,7 @@ What challenge or document would you like to explore today?`,
                   <strong>Page:</strong> {activeCitation.pageNumber}
                 </span>
                 <span className="rounded bg-purple-900/60 px-2 py-0.5 text-xs text-purple-200">
-                  Semantic Score: {Math.round(activeCitation.score * 100)}%
+                  Match: {Math.round(activeCitation.score * 100)}%
                 </span>
               </div>
 
@@ -627,7 +902,7 @@ What challenge or document would you like to explore today?`,
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={`Ask anything in ${language}... (e.g. "Explain HTML vs CSS with code", or "According to my syllabus...")`}
+            placeholder={`Ask SkillQuest AI anything in ${language}... (e.g. "What is quantum computing?", "Write a Python script", "Explain HTML vs CSS")`}
             className="w-full flex-1 rounded-2xl border border-gray-800 bg-[#080B14] px-4 py-3 text-xs md:text-sm text-white placeholder-gray-500 transition focus:border-purple-500 focus:outline-none"
           />
 
@@ -637,7 +912,7 @@ What challenge or document would you like to explore today?`,
             className="w-full sm:w-auto flex items-center justify-center gap-1.5 rounded-2xl bg-gradient-to-r from-purple-600 to-cyan-500 px-5 py-3 text-xs md:text-sm font-bold text-white shadow-glow-purple hover:opacity-95 disabled:opacity-40 transition"
           >
             <Send className="h-4 w-4" />
-            <span className="sm:hidden">Send Question</span>
+            <span className="sm:hidden">Send</span>
           </button>
         </form>
       </div>

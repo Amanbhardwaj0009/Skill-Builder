@@ -160,6 +160,26 @@ export class RAGService {
       }
     }
 
+    // If query is a meta-request asking about the document ("what is in my document", "explain my uploaded pdf")
+    if (scoredChunks.length === 0 && candidateChunks.length > 0) {
+      const isMetaDocQuery = /(document|pdf|file|notes|upload|syllabus|contents|summary|explain my|in my)/i.test(query);
+      if (isMetaDocQuery) {
+        // Return user's most relevant document chunks
+        for (const chunk of candidateChunks.slice(0, topK)) {
+          scoredChunks.push({
+            chunkId: chunk._id.toString(),
+            documentId: chunk.documentId.toString(),
+            filename: chunk.filename,
+            pageNumber: chunk.pageNumber,
+            chunkIndex: chunk.chunkIndex,
+            text: chunk.text,
+            score: 0.88,
+            citation: `[Source: ${chunk.filename}${chunk.pageNumber > 0 ? `, Page ${chunk.pageNumber}` : ''}]`,
+          });
+        }
+      }
+    }
+
     // Sort descending by score
     scoredChunks.sort((a, b) => b.score - a.score);
 
