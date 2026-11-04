@@ -1,15 +1,15 @@
 {
-  "name": "skillquest-ai-monorepo",
+  "name": "aman-bhardwaj-portfolio-workspace",
   "version": "1.0.0",
-  "description": "SkillQuest AI - Gamified AI Learning Platform",
+  "description": "Aman Bhardwaj - Premium 3D Interactive Developer Portfolio",
   "private": true,
   "scripts": {
-    "dev:backend": "npm --prefix backend run dev",
+    "dev": "npm --prefix frontend run dev",
+    "dev:portfolio": "npm --prefix frontend run dev",
+    "build:portfolio": "npm --prefix frontend run build",
+    "preview:portfolio": "npm --prefix frontend run preview",
     "dev:frontend": "npm --prefix frontend run dev",
-    "build:backend": "npm --prefix backend run build",
     "build:frontend": "npm --prefix frontend run build",
-    "build": "npm run build:backend && npm run build:frontend",
-    "test": "npm --prefix backend run test",
-    "seed": "npm --prefix backend run seed"
+    "build": "npm run build:frontend"
   }
 }

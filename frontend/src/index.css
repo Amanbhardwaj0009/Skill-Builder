@@ -3,13 +3,23 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --primary-neon: #00f0ff;
+    --purple-neon: #a855f7;
+    --blue-neon: #3b82f6;
+  }
+
   body {
-    @apply bg-[#080B14] text-[#F8FAFC];
+    @apply bg-[#030712] text-[#F8FAFC];
     font-family: 'Inter', system-ui, sans-serif;
   }
 
   h1, h2, h3, h4, .font-display {
-    font-family: 'Orbitron', 'Inter', sans-serif;
+    font-family: 'Orbitron', 'Plus Jakarta Sans', sans-serif;
+  }
+
+  .font-syne {
+    font-family: 'Syne', sans-serif;
   }
 
   code, pre, .font-mono {
@@ -19,49 +29,124 @@
 
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #080B14;
+  background: #030712;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #1E293B;
+  background: rgba(168, 85, 247, 0.3);
   border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #8B5CF6;
+  background: rgba(0, 240, 255, 0.6);
 }
 
-/* Neon Glow Utility Classes */
-.glow-border {
-  border: 1px solid rgba(139, 92, 246, 0.3);
-  box-shadow: 0 0 15px -3px rgba(139, 92, 246, 0.2);
+/* Glassmorphism & Cyber Glow utilities */
+.glass-panel {
+  background: rgba(10, 15, 29, 0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
 }
 
-.glow-border-cyan {
-  border: 1px solid rgba(56, 189, 248, 0.3);
-  box-shadow: 0 0 15px -3px rgba(56, 189, 248, 0.2);
+.glass-panel-glow {
+  background: rgba(10, 16, 32, 0.82);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(0, 240, 255, 0.2);
+  box-shadow: 0 0 25px -5px rgba(0, 240, 255, 0.15), 0 8px 32px 0 rgba(0, 0, 0, 0.45);
 }
 
-.glow-card {
-  background: linear-gradient(135deg, rgba(18, 27, 45, 0.85) 0%, rgba(16, 22, 38, 0.95) 100%);
-  border: 1px solid rgba(139, 92, 246, 0.25);
-  backdrop-filter: blur(16px);
+.glass-panel-purple {
+  background: rgba(14, 11, 30, 0.82);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(168, 85, 247, 0.25);
+  box-shadow: 0 0 25px -5px rgba(168, 85, 247, 0.15), 0 8px 32px 0 rgba(0, 0, 0, 0.45);
 }
 
-@keyframes float {
+.text-gradient-cyan-purple {
+  background: linear-gradient(135deg, #ffffff 0%, #00f0ff 40%, #a855f7 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.text-gradient-purple-cyan {
+  background: linear-gradient(135deg, #c084fc 0%, #a855f7 50%, #38bdf8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.cyber-grid {
+  background-size: 40px 40px;
+  background-image: 
+    linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+}
+
+.cyber-dots {
+  background-image: radial-gradient(rgba(0, 240, 255, 0.12) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* 3D Card Perspective */
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+.transform-style-3d {
+  transform-style: preserve-3d;
+}
+
+.backface-hidden {
+  backface-visibility: hidden;
+}
+
+/* Ambient Radial Glows */
+.bg-radial-hero {
+  background: radial-gradient(circle at 50% 30%, rgba(168, 85, 247, 0.15) 0%, rgba(0, 240, 255, 0.08) 35%, transparent 70%);
+}
+
+.bg-radial-cyan {
+  background: radial-gradient(circle at center, rgba(0, 240, 255, 0.12) 0%, transparent 60%);
+}
+
+.bg-radial-purple {
+  background: radial-gradient(circle at center, rgba(168, 85, 247, 0.15) 0%, transparent 60%);
+}
+
+/* Animations */
+@keyframes pulseGlow {
   0%, 100% {
-    transform: translateY(0px);
+    opacity: 0.5;
+    transform: scale(1);
   }
   50% {
-    transform: translateY(-8px);
+    opacity: 0.8;
+    transform: scale(1.05);
   }
 }
 
-.animate-float {
-  animation: float 4s ease-in-out infinite;
+.animate-pulse-glow {
+  animation: pulseGlow 4s ease-in-out infinite;
+}
+
+@keyframes scanline {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(1000%);
+  }
+}
+
+.animate-scanline {
+  animation: scanline 8s linear infinite;
 }

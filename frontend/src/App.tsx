@@ -4,6 +4,7 @@ import { AuthProvider } from './context/AuthContext';
 import { Layout } from './components/Layout';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
+import { AmanPortfolio } from './portfolio/AmanPortfolio';
 import { LandingPage } from './pages/LandingPage';
 import { LoginPage } from './pages/auth/LoginPage';
 import { RegisterPage } from './pages/auth/RegisterPage';
@@ -16,7 +17,6 @@ import { CodingArenaPage } from './pages/coding-arena/CodingArenaPage';
 import { MentorPage } from './pages/mentor/MentorPage';
 import { SkillTreePage } from './pages/skill-tree/SkillTreePage';
 import { ProjectsPage } from './pages/projects/ProjectsPage';
-import { PortfolioPage } from './pages/projects/PortfolioPage';
 import { TeamChallengesPage } from './pages/teams/TeamChallengesPage';
 import { LeaderboardPage } from './pages/leaderboard/LeaderboardPage';
 import { ProfilePage } from './pages/profile/ProfilePage';
@@ -30,8 +30,12 @@ export const App: React.FC = () => {
     <BrowserRouter>
       <AuthProvider>
         <Routes>
-          {/* Public Routes */}
-          <Route path="/" element={<LandingPage />} />
+          {/* Main 3D Portfolio Landing for Aman Bhardwaj */}
+          <Route path="/" element={<AmanPortfolio />} />
+          <Route path="/portfolio" element={<AmanPortfolio />} />
+          
+          {/* SkillQuest AI Platform Routes */}
+          <Route path="/skillquest" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
 
@@ -49,8 +53,6 @@ export const App: React.FC = () => {
               <Route path="/mentor" element={<MentorPage />} />
               <Route path="/skill-tree" element={<SkillTreePage />} />
               <Route path="/projects" element={<ProjectsPage />} />
-              <Route path="/portfolio" element={<PortfolioPage />} />
-              <Route path="/portfolio/:userId" element={<PortfolioPage />} />
               <Route path="/team-challenges" element={<TeamChallengesPage />} />
               <Route path="/leaderboard" element={<LeaderboardPage />} />
               <Route path="/profile" element={<ProfilePage />} />
